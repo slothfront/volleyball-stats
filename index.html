@@ -1227,7 +1227,7 @@ input[type="number"] {
       </div>
       <div class="meta" id="statsMeta">SET 1</div>
     </div>
-    <button class="btn small secondary" onclick="goRecord()">← 記録に戻る</button>
+    <button class="btn small secondary" id="statsBackBtn" onclick="statsGoBack()">← 戻る</button>
   </div>
   <div style="padding:12px;">
     <div class="tabs">
@@ -1264,6 +1264,17 @@ input[type="number"] {
   <div class="card">
     <h2 id="finalResult"></h2>
     <div id="finalSetScores"></div>
+  </div>
+  <div class="card">
+    <h2>STATS</h2>
+    <button class="btn large" onclick="showStats('screen-finish')">集計を見る</button>
+  </div>
+  <div class="card">
+    <h2>EDIT</h2>
+    <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px;">
+      間違いがあった場合、記録画面に戻って修正できます。最後のセットの状態から再開します。
+    </p>
+    <button class="btn outline large" onclick="reopenMatch()">記録画面に戻って編集</button>
   </div>
   <div class="card">
     <h2>EXPORT DATA</h2>
@@ -1600,7 +1611,23 @@ function goSetup() {
   }
 }
 function goRecord() { renderRecord(); showScreen('screen-record'); }
-function showStats() { renderStats(); showScreen('screen-stats'); }
+
+// 集計画面を呼び出す。呼び出し元を記憶して戻れるように
+let statsReturnScreen = 'screen-record';
+function showStats(fromScreen) {
+  if (fromScreen) statsReturnScreen = fromScreen;
+  else statsReturnScreen = 'screen-record';
+  renderStats();
+  showScreen('screen-stats');
+}
+function statsGoBack() {
+  if (statsReturnScreen === 'screen-finish') {
+    renderFinishScreen();
+    showScreen('screen-finish');
+  } else {
+    goRecord();
+  }
+}
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
 // ============ ホーム ============
@@ -1663,7 +1690,7 @@ function resumeMatch(id) {
 function pauseMatch() {
   // 既にsaveMatch()は記録時に都度呼ばれているのでデータは保存済み
   saveMatch();
-  alert('試合を中断しました。ホーム画面の「LIVE」マークから続きから再開できます。');
+  alert('試合を中断しました。ホーム画面の保存済み試合一覧から「続きから」ボタンで再開できます。');
   goHome();
 }
 
@@ -1683,6 +1710,38 @@ function loadMatch(id) {
   // 完了済みのみ閲覧モードで開く(終了画面)
   renderFinishScreen();
   showScreen('screen-finish');
+}
+
+// 完了試合を編集モードで再開
+function reopenMatch() {
+  if (!state.sets || state.sets.length === 0) {
+    alert('編集できるセットがありません。');
+    return;
+  }
+  if (!confirm('最後のセットの状態に戻して記録画面で編集します。\n編集後はサーブ権・ローテーションが正しいか「調整」ボタンで確認してください。よろしいですか?')) return;
+
+  // 最後のセットを取り出し、進行中の状態に戻す
+  const lastSet = state.sets.pop();
+  state.currentSet = lastSet.set;
+  state.currentRallies = lastSet.rallies || [];
+  state.scoreUs = lastSet.scoreUs;
+  state.scoreThem = lastSet.scoreThem;
+
+  // serving と rotationIndex を再計算
+  // 第1セット以外はラリーログから推定が難しいので、最終ラリーの状態から逆算
+  if (state.currentSet === 1) {
+    recomputeRotationFromRallies();
+  } else if (state.currentRallies.length > 0) {
+    // 最後のラリーの直後の状態を再現
+    const lastRally = state.currentRallies[state.currentRallies.length - 1];
+    state.serving = lastRally.servingSide;
+    // rotationIndex はラリーログから巻き戻すのが難しいので、現状値を保持
+    // ユーザーが「調整」ボタンで確認・修正
+    state.rotationIndex = state.rotationIndex || 0;
+  }
+
+  saveMatch();
+  goRecord();
 }
 
 // ============ ロスター保存(チーム設定) ============
@@ -2248,12 +2307,21 @@ function confirmEndSet() {
   state.currentRallies = [];
   state.scoreUs = 0;
   state.scoreThem = 0;
-  // サーブ: 前セットの勝者から、ではなく交互にする慣例もあるが
-  // ここではシンプルに: 1stから交互にする(セットに応じて自動) or 確認させる
-  // 簡単化: セット間で確認
-  const swap = confirm('次のセットのサーブ権を交代しますか?\n(OK=交代、キャンセル=同じ)');
-  if (swap) state.serving = state.serving === 'us' ? 'them' : 'us';
   state.rotationIndex = 0;
+
+  // サーブ権の決定
+  // 第2セット: 第1セットでサーブを打たなかった側(自動)
+  // 第3セット(最終セット): フルセットになるとコイントスが行われるため、ユーザー選択
+  if (state.currentSet === 2) {
+    state.serving = state.firstServe === 'us' ? 'them' : 'us';
+    alert(`第${state.currentSet}セット開始\nサーブ権: ${state.serving === 'us' ? '自チーム' : '相手チーム'}\n(第1セットでレシーブだったチームがサーブ)`);
+  } else {
+    // 最終セット: コイントス再実施のため確認
+    const choice = confirm('最終セットのコイントスの結果を入力してください。\n\nOK = 自チームがサーブ\nキャンセル = 相手チームがサーブ');
+    state.serving = choice ? 'us' : 'them';
+    alert(`第${state.currentSet}セット開始\nサーブ権: ${state.serving === 'us' ? '自チーム' : '相手チーム'}`);
+  }
+
   // スタメン変更を許可するなら、ここで再選択画面を出す...今回はそのまま
   if (confirm('スタメンを変更しますか?\n(OK=変更画面へ、キャンセル=同じスタメンで継続)')) {
     showScreen('screen-setup');
