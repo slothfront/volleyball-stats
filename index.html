@@ -730,7 +730,8 @@ input[type="number"] {
   font-weight: 900;
   text-align: left;
   padding-left: 14px;
-  border-right: 3px solid var(--black);
+  /* border-collapse:collapse + position:sticky だと縦罫線が消えるため box-shadow で描画 */
+  box-shadow: 3px 0 0 var(--black);
   z-index: 1;
 }
 .table-scroll .stat-table thead th:first-child {
@@ -739,7 +740,6 @@ input[type="number"] {
   background: var(--black);
   color: var(--paper);
   z-index: 2;
-  border-right: 3px solid var(--black);
 }
 .err-cell { color: rgba(0,0,0,0.5); }
 .eff-good { color: var(--blue); font-weight: 900; }
@@ -2309,18 +2309,19 @@ function confirmEndSet() {
   state.scoreThem = 0;
   state.rotationIndex = 0;
 
-  // サーブ権の決定
-  // 第2セット: 第1セットでサーブを打たなかった側(自動)
-  // 第3セット(最終セット): フルセットになるとコイントスが行われるため、ユーザー選択
-  if (state.currentSet === 2) {
-    state.serving = state.firstServe === 'us' ? 'them' : 'us';
-    alert(`第${state.currentSet}セット開始\nサーブ権: ${state.serving === 'us' ? '自チーム' : '相手チーム'}\n(第1セットでレシーブだったチームがサーブ)`);
-  } else {
-    // 最終セット: コイントス再実施のため確認
-    const choice = confirm('最終セットのコイントスの結果を入力してください。\n\nOK = 自チームがサーブ\nキャンセル = 相手チームがサーブ');
-    state.serving = choice ? 'us' : 'them';
-    alert(`第${state.currentSet}セット開始\nサーブ権: ${state.serving === 'us' ? '自チーム' : '相手チーム'}`);
-  }
+  // サーブ権の決定: ユーザーに毎回選択してもらう
+  // 公式戦(3セットマッチ): 第2セットは前セットの逆、第3セット(最終)はコイントス再実施
+  // 練習試合: セットごとにコイントス、または交互など、運用がさまざま
+  // どの方式にも対応するため、デフォルト案を提示しつつユーザー選択にする
+  const defaultSwap = state.serving === 'us' ? 'them' : 'us';
+  const defaultLabel = defaultSwap === 'us' ? '自チーム' : '相手チーム';
+  const choice = confirm(
+    `第${state.currentSet}セット開始\n\n` +
+    `サーブ権はどちらですか?\n\n` +
+    `OK = ${defaultLabel}(前セットの逆)\n` +
+    `キャンセル = ${defaultSwap === 'us' ? '相手チーム' : '自チーム'}`
+  );
+  state.serving = choice ? defaultSwap : (defaultSwap === 'us' ? 'them' : 'us');
 
   // スタメン変更を許可するなら、ここで再選択画面を出す...今回はそのまま
   if (confirm('スタメンを変更しますか?\n(OK=変更画面へ、キャンセル=同じスタメンで継続)')) {
