@@ -1335,6 +1335,16 @@ let state = {
 
 // ラリー: { type, player, zone, scoreUsAfter, scoreThemAfter, rotation, server, set, ts }
 
+// レシーブミス→被サービスエース、ディグミス→被スパイク失点として再分類
+// (サマリー集計時のみ使用。個人スタッツ・ヒートマップ・ERROR BREAKDOWNには影響しない)
+function effectiveType(rally) {
+  if (rally.type === 'us_other_err') {
+    if (rally.detail === 'レシーブ') return 'them_ace';
+    if (rally.detail === 'ディグ') return 'them_kill';
+  }
+  return rally.type;
+}
+
 const POINT_TYPES = {
   'us_ace':       { label: '自エース', side: 'us', needPlayer: false, needZone: true,  zoneCourt: 'them', autoServer: true },
   'us_kill':      { label: '自スパイク決定', side: 'us', needPlayer: true,  needZone: true,  zoneCourt: 'them' },
@@ -1423,7 +1433,7 @@ let pendingSubPos = null;
 function openSubModal(pos) {
   pendingSubPos = pos;
   // 現在 P{pos} にいる選手
-  const lineupIdx = (pos - 1 - state.rotationIndex + 6) % 6;
+  const lineupIdx = (pos - 1 + state.rotationIndex) % 6;
   const currentPlayerIdx = state.startingLineup[lineupIdx];
   const currentName = currentPlayerIdx !== null ? state.players[currentPlayerIdx].name : '-';
 
@@ -1454,7 +1464,7 @@ function openSubModal(pos) {
 
 function confirmSub(newPlayerIdx) {
   const pos = pendingSubPos;
-  const lineupIdx = (pos - 1 - state.rotationIndex + 6) % 6;
+  const lineupIdx = (pos - 1 + state.rotationIndex) % 6;
   const oldPlayerIdx = state.startingLineup[lineupIdx];
   const oldName = oldPlayerIdx !== null ? state.players[oldPlayerIdx].name : '-';
   const newName = state.players[newPlayerIdx].name;
@@ -1992,7 +2002,7 @@ function openPlayerModal(type) {
     // ※ rotation: P{pos}にいる選手 = startingLineup[(pos - 1 - rotationIndex + 6) % 6]
     const frontPositions = [2, 3, 4];
     candidates = frontPositions.map(pos => {
-      const lineupIdx = (pos - 1 - state.rotationIndex + 6) % 6;
+      const lineupIdx = (pos - 1 + state.rotationIndex) % 6;
       return state.startingLineup[lineupIdx];
     }).filter(idx => idx !== null).map(idx => ({...state.players[idx], idx}));
   } else {
@@ -2108,7 +2118,7 @@ function finalizePoint() {
 
   // サーブ系イベントはサーバーを自動取得
   if (pt.autoServer) {
-    const serverIdx = state.startingLineup[(0 - state.rotationIndex + 6) % 6];
+    const serverIdx = state.startingLineup[(0 + state.rotationIndex) % 6];
     if (serverIdx !== null) {
       player = state.players[serverIdx].name;
     }
@@ -2233,7 +2243,7 @@ function renderRecord() {
     [5, 6, 1]
   ];
   grid.innerHTML = display.flat().map(pos => {
-    const idx = state.startingLineup[(pos - 1 - state.rotationIndex + 6) % 6];
+    const idx = state.startingLineup[(pos - 1 + state.rotationIndex) % 6];
     const p = idx !== null ? state.players[idx] : null;
     const name = p ? (p.short || p.name) : '-';
     const isServer = pos === 1;
@@ -2246,7 +2256,7 @@ function renderRecord() {
   }).join('');
 
   // サーバー名
-  const serverIdx = state.startingLineup[(0 - state.rotationIndex + 6) % 6];
+  const serverIdx = state.startingLineup[(0 + state.rotationIndex) % 6];
   const serverName = serverIdx !== null ? state.players[serverIdx].name : '-';
   document.getElementById('serverName').textContent = state.serving === 'us' ? serverName : '相手';
 
@@ -2400,7 +2410,7 @@ function renderSummary(rallies) {
   const themPoints = rallies.filter(r => POINT_TYPES[r.type].side === 'them').length;
   const counts = {};
   for (const t of Object.keys(POINT_TYPES)) {
-    counts[t] = rallies.filter(r => r.type === t).length;
+    counts[t] = rallies.filter(r => effectiveType(r) === t).length;
   }
   // SO%/PS%
   const usServeRallies = rallies.filter(r => r.servingSide === 'us');
@@ -2438,6 +2448,9 @@ function renderSummary(rallies) {
         <tr class="row-warn"><td>その他自ミス</td><td>${counts.us_other_err}</td></tr>
         <tr class="row-warn"><td>自反則</td><td>${counts.us_violation || 0}</td></tr>
       </table>
+      <p style="font-size:11px;color:var(--text-tertiary);margin-top:10px;letter-spacing:0.04em;">
+        ※ レシーブミスは「被エース」、ディグミスは「被スパイク失点」に集計しています。
+      </p>
     </div>
     ${renderDetailBreakdown(rallies)}
   `;
