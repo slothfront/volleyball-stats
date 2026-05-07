@@ -275,16 +275,16 @@ input[type="number"] {
 .score {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   font-family: 'Archivo Black', sans-serif;
-  font-size: clamp(40px, 11vw, 72px);
+  font-size: clamp(38px, 10vw, 70px);
   font-weight: 900;
   line-height: 0.85;
   letter-spacing: -0.06em;
 }
 .score-cell {
   min-width: 1.6em;
-  padding: 2px 10px;
+  padding: 2px 8px;
   text-align: center;
   position: relative;
   box-sizing: border-box;
@@ -373,12 +373,15 @@ input[type="number"] {
   gap: 5px;
 }
 .topbar .actions .btn {
-  font-size: 10px;
+  font-size: 11px;
   padding: 6px 8px;
-  letter-spacing: 0.06em;
-  min-width: 60px;
+  letter-spacing: 0.04em;
+  min-width: 0;
   box-shadow: 2px 2px 0 var(--black);
   border-width: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .topbar .actions .btn:active {
   transform: translate(2px, 2px);
@@ -535,6 +538,11 @@ input[type="number"] {
 .record-btn.attempt {
   background: var(--paper);
   color: var(--black);
+}
+.record-btn.timeout-btn {
+  background: var(--paper);
+  color: var(--black);
+  border-style: dashed;
 }
 .record-btn.disabled-context {
   opacity: 0.3;
@@ -1089,6 +1097,8 @@ input[type="number"] {
     </div>
     <div class="actions">
       <button class="btn small outline" onclick="pauseMatch()" title="中断してホームに戻る">一時停止</button>
+      <button class="btn small outline" onclick="undoLast()" title="直前のラリーを取り消し">↶ 戻す</button>
+      <button class="btn small outline" onclick="openLiberoModal()">リベロ</button>
       <button class="btn small outline" onclick="openAdjustModal()">調整</button>
       <button class="btn small outline" onclick="showStats()">集計</button>
       <button class="btn small secondary" onclick="endSetConfirm()">セット終了</button>
@@ -1123,15 +1133,20 @@ input[type="number"] {
     <div class="record-grid">
       <button class="record-btn them" data-type="them_ace" onclick="recordPoint('them_ace')">被サービスエース<span class="sub">(ゾーン)</span></button>
       <button class="record-btn them" data-type="them_kill" onclick="recordPoint('them_kill')">被スパイク失点<span class="sub">(ゾーン)</span></button>
-      <button class="record-btn us-err" data-type="us_serve_err" onclick="recordPoint('us_serve_err')">自サーブミス<span class="sub">(タップのみ)</span></button>
-      <button class="record-btn us-err" data-type="us_spike_err" onclick="recordPoint('us_spike_err')">自スパイクミス<span class="sub">(選手)</span></button>
+      <button class="record-btn us-err" data-type="us_serve_err" onclick="recordPoint('us_serve_err')">サーブミス<span class="sub">(タップのみ)</span></button>
+      <button class="record-btn us-err" data-type="us_spike_err" onclick="recordPoint('us_spike_err')">スパイクミス<span class="sub">(選手)</span></button>
+      <button class="record-btn us-err" data-type="us_recv_err" onclick="recordPoint('us_recv_err')">レシーブミス<span class="sub">(選手)</span></button>
+      <button class="record-btn us-err" data-type="us_dig_err" onclick="recordPoint('us_dig_err')">ディグミス<span class="sub">(選手)</span></button>
+      <button class="record-btn us-err" data-type="us_cover_err" onclick="recordPoint('us_cover_err')">カバーミス<span class="sub">(選手)</span></button>
+      <button class="record-btn us-err" data-type="us_toss_err" onclick="recordPoint('us_toss_err')">トスミス<span class="sub">(選手)</span></button>
+      <button class="record-btn us-err" data-type="us_return_err" onclick="recordPoint('us_return_err')">返球ミス<span class="sub">(選手)</span></button>
+      <button class="record-btn us-err" data-type="us_other_err" onclick="recordPoint('us_other_err')">その他ミス<span class="sub">(選手)</span></button>
     </div>
 
     <div class="section-label">OTHER</div>
     <div class="record-grid" style="grid-template-columns: 1fr 1fr;">
-      <button class="record-btn us-err" data-type="us_other_err" onclick="recordPoint('us_other_err')">その他自ミス<span class="sub">(選手)</span></button>
       <button class="record-btn us-err" data-type="us_violation" onclick="recordPoint('us_violation')">自反則<span class="sub">(選手)</span></button>
-      <button class="record-btn btn-undo" onclick="undoLast()" style="grid-column: 1 / -1;">↶ 一つ戻す</button>
+      <button class="record-btn timeout-btn" onclick="recordTimeout()">タイム<span class="sub">(タイミング記録)</span></button>
     </div>
 
     <div class="section-label">RALLY CONTINUED (NO POINT)</div>
@@ -1218,6 +1233,38 @@ input[type="number"] {
     <div class="row" style="margin-top:16px;">
       <button class="btn secondary" onclick="closeModal('modal-adjust')">キャンセル</button>
       <button class="btn success" onclick="applyAdjustment()">適用</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ タイムアウト記録モーダル ============ -->
+<div class="modal-overlay" id="modal-timeout">
+  <div class="modal">
+    <h3>タイムアウト</h3>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">
+      どちらが取ったタイムアウトですか?
+    </p>
+    <div class="row">
+      <button class="btn large" onclick="confirmTimeout('us')">自チーム</button>
+      <button class="btn large" style="background:var(--red);color:var(--paper);" onclick="confirmTimeout('them')">相手チーム</button>
+    </div>
+    <div style="margin-top:10px;">
+      <button class="btn secondary large" onclick="closeModal('modal-timeout')">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ リベロ設定モーダル ============ -->
+<div class="modal-overlay" id="modal-libero">
+  <div class="modal">
+    <h3>リベロ設定</h3>
+    <p style="font-size:12px;color:var(--text-tertiary);margin-bottom:12px;">
+      試合中もリベロを変更できます。<br>
+      ※ リベロにマークするとローテーションには参加しません(後衛のみ・スパイクミスの候補にも出ません)。
+    </p>
+    <div id="liberoList" style="display:flex;flex-direction:column;gap:6px;"></div>
+    <div class="row" style="margin-top:16px;">
+      <button class="btn secondary" onclick="closeModal('modal-libero')">閉じる</button>
     </div>
   </div>
 </div>
@@ -1350,25 +1397,35 @@ let state = {
 // ラリー: { type, player, zone, scoreUsAfter, scoreThemAfter, rotation, server, set, ts }
 
 // レシーブミス→被サービスエース、ディグミス→被スパイク失点として再分類
-// (サマリー集計時のみ使用。個人スタッツ・ヒートマップ・ERROR BREAKDOWNには影響しない)
+// effectiveType: 旧形式データとの互換性を維持
+// 古いデータの us_other_err + detail("レシーブ"/"ディグ" 等) を集計上は新 type として扱う
 function effectiveType(rally) {
-  if (rally.type === 'us_other_err') {
+  // 旧データ互換: us_other_err + detail を新 type に変換
+  if (rally.type === 'us_other_err' && rally.detail) {
     if (rally.detail === 'レシーブ') return 'them_ace';
     if (rally.detail === 'ディグ') return 'them_kill';
   }
+  // 新形式: レシーブミス・ディグミスは意味的に被エース・被スパイク失点と同じ
+  if (rally.type === 'us_recv_err') return 'them_ace';
+  if (rally.type === 'us_dig_err') return 'them_kill';
   return rally.type;
 }
 
 const POINT_TYPES = {
-  'us_ace':       { label: '自エース', side: 'us', needPlayer: false, needZone: true,  zoneCourt: 'them', autoServer: true },
-  'us_kill':      { label: '自スパイク決定', side: 'us', needPlayer: true,  needZone: true,  zoneCourt: 'them' },
-  'us_block':     { label: '自ブロック決定', side: 'us', needPlayer: true,  needZone: false },
+  'us_ace':       { label: 'サービスエース', side: 'us', needPlayer: false, needZone: true,  zoneCourt: 'them', autoServer: true },
+  'us_kill':      { label: 'スパイク決定', side: 'us', needPlayer: true,  needZone: true,  zoneCourt: 'them' },
+  'us_block':     { label: 'ブロック決定', side: 'us', needPlayer: true,  needZone: false },
   'them_err':     { label: '相手ミス', side: 'us', needPlayer: false, needZone: false },
   'them_ace':     { label: '被サービスエース', side: 'them', needPlayer: false, needZone: true,  zoneCourt: 'us' },
   'them_kill':    { label: '被スパイク失点', side: 'them', needPlayer: false, needZone: true,  zoneCourt: 'us' },
-  'us_serve_err': { label: '自サーブミス', side: 'them', needPlayer: false, needZone: false, autoServer: true, detailKey: 'serve_err' },
-  'us_spike_err': { label: '自スパイクミス', side: 'them', needPlayer: true,  needZone: false, detailKey: 'spike_err' },
-  'us_other_err': { label: 'その他自ミス', side: 'them', needPlayer: true,  needZone: false, liberoEligible: true, detailKey: 'other_err' },
+  'us_serve_err': { label: 'サーブミス', side: 'them', needPlayer: false, needZone: false, autoServer: true, detailKey: 'serve_err' },
+  'us_spike_err': { label: 'スパイクミス', side: 'them', needPlayer: true,  needZone: false, detailKey: 'spike_err' },
+  'us_recv_err':  { label: 'レシーブミス', side: 'them', needPlayer: true,  needZone: false, liberoEligible: true },
+  'us_dig_err':   { label: 'ディグミス', side: 'them', needPlayer: true,  needZone: false, liberoEligible: true },
+  'us_cover_err': { label: 'カバーミス', side: 'them', needPlayer: true,  needZone: false, liberoEligible: true },
+  'us_toss_err':  { label: 'トスミス', side: 'them', needPlayer: true,  needZone: false, liberoEligible: true },
+  'us_return_err':{ label: '返球ミス', side: 'them', needPlayer: true,  needZone: false, liberoEligible: true },
+  'us_other_err': { label: 'その他ミス', side: 'them', needPlayer: true,  needZone: false, liberoEligible: true },
   'us_violation': { label: '自反則', side: 'them', needPlayer: true,  needZone: false, liberoEligible: true, detailKey: 'violation' },
   'spike_attempt':{ label: 'スパイク試行(継続)', side: 'none', needPlayer: true, needZone: false }
 };
@@ -1377,7 +1434,6 @@ const POINT_TYPES = {
 const DETAIL_OPTIONS = {
   'serve_err':  ['ネット', 'アウト', '不明'],
   'spike_err':  ['ネット', 'アウト', 'ブロックされた', '不明'],
-  'other_err':  ['レシーブ', 'ディグ', 'カバー', 'セット', '返球', '不明'],
   'violation':  ['ハンドリング', 'タッチネット', 'センターライン', 'フットフォルト', 'その他']
 };
 
@@ -1385,6 +1441,60 @@ const POSITION_LABELS = ['P1(右後/サーブ)', 'P2(右前)', 'P3(中央前)', 
 
 // ============ 試合状態の調整 ============
 let pendingAdjustServe = null;
+
+// ============ リベロ設定 ============
+function openLiberoModal() {
+  renderLiberoList();
+  document.getElementById('modal-libero').classList.add('active');
+}
+
+function renderLiberoList() {
+  const container = document.getElementById('liberoList');
+  // 出場中の選手のみ表示
+  const items = state.players
+    .map((p, i) => ({...p, idx: i}))
+    .filter(p => p.active && p.name);
+  if (items.length === 0) {
+    container.innerHTML = '<p style="font-size:13px;color:var(--text-secondary);">登録選手がいません。</p>';
+    return;
+  }
+  container.innerHTML = items.map(p => `
+    <label style="display:flex;align-items:center;gap:10px;padding:10px;border:2px solid var(--black);background:${p.libero ? 'var(--yellow)' : 'var(--paper)'};cursor:pointer;">
+      <input type="checkbox" ${p.libero ? 'checked' : ''} onchange="toggleLibero(${p.idx}, this.checked)" style="width:20px;height:20px;">
+      <span style="font-weight:700;flex:1;">
+        ${p.number ? `#${escapeHtml(p.number)} ` : ''}${escapeHtml(p.name)}
+        ${p.libero ? '<span style="font-size:11px;color:var(--black);background:var(--paper);padding:2px 6px;margin-left:6px;border:1px solid var(--black);">L</span>' : ''}
+      </span>
+    </label>
+  `).join('');
+}
+
+function toggleLibero(playerIdx, isLibero) {
+  const player = state.players[playerIdx];
+  if (!player) return;
+
+  // リベロをONにする場合、現在のスタメンに入っているか確認
+  if (isLibero && state.startingLineup) {
+    const lineupPos = state.startingLineup.indexOf(playerIdx);
+    if (lineupPos !== -1) {
+      // スタメンから外す確認
+      if (!confirm(`${player.name} は現在スタメン(P${lineupPos + 1})に入っています。\nリベロにマークするとスタメンから外れます。続けますか?`)) {
+        // チェックを戻す
+        renderLiberoList();
+        return;
+      }
+      state.startingLineup[lineupPos] = null;
+    }
+  }
+
+  player.libero = isLibero;
+  saveMatch();
+  renderLiberoList();
+  // 記録画面も再描画(コートのリベロ表示などが影響する場合)
+  if (document.getElementById('screen-record').classList.contains('active')) {
+    renderRecord();
+  }
+}
 
 function openAdjustModal() {
   document.getElementById('adjustScoreUs').value = state.scoreUs;
@@ -2195,6 +2305,12 @@ function undoLast() {
   }
   if (!confirm('直前のラリーを取り消します')) return;
   const last = state.currentRallies.pop();
+  // タイムアウトの場合はスコア変動なし
+  if (last.type === 'timeout') {
+    saveMatch();
+    renderRecord();
+    return;
+  }
   state.scoreUs = last.scoreUsBefore;
   state.scoreThem = last.scoreThemBefore;
   // ローテとサーブ権を巻き戻す: 簡易には全ラリーを再計算するのが安全
@@ -2203,12 +2319,39 @@ function undoLast() {
   renderRecord();
 }
 
+// タイムアウト記録(スコア変動なし、タイミング記録のみ)
+function recordTimeout() {
+  document.getElementById('modal-timeout').classList.add('active');
+}
+
+function confirmTimeout(side) {
+  closeModal('modal-timeout');
+  const ts = new Date().toISOString();
+  state.currentRallies.push({
+    set: state.currentSet,
+    type: 'timeout',
+    typeLabel: side === 'us' ? '自TO' : '相手TO',
+    side: side,
+    scoreUsBefore: state.scoreUs,
+    scoreUsAfter: state.scoreUs,
+    scoreThemBefore: state.scoreThem,
+    scoreThemAfter: state.scoreThem,
+    rotation: state.rotationIndex + 1,
+    server: null,
+    servingSide: state.serving,
+    ts: ts
+  });
+  saveMatch();
+  renderRecord();
+}
+
 function recomputeRotationFromRallies() {
   state.serving = state.firstServe;
   state.rotationIndex = 0;
   for (const r of state.currentRallies) {
+    if (r.type === 'timeout') continue; // タイムアウトはローテに影響しない
     const pt = POINT_TYPES[r.type];
-    if (pt.side === 'none') continue; // ラリー継続記録は無視
+    if (!pt || pt.side === 'none') continue; // ラリー継続記録は無視
     if (pt.side === 'us') {
       if (state.serving === 'them') {
         state.rotationIndex = (state.rotationIndex + 1) % 6;
@@ -2305,17 +2448,27 @@ function renderRecord() {
   if (recent.length === 0) {
     logDiv.innerHTML = '<div style="padding:12px;color:var(--text-tertiary);font-size:13px;">まだラリーが記録されていません</div>';
   } else {
-    logDiv.innerHTML = recent.map(r => `
-      <div class="log-item">
-        <span class="pt">${r.scoreUsAfter}-${r.scoreThemAfter}</span>
-        <span class="desc">
-          ${escapeHtml(r.typeLabel)}
-          ${r.detail ? '【' + escapeHtml(r.detail) + '】' : ''}
-          ${r.player ? '/ ' + escapeHtml(r.player) : ''}
-          ${r.zone ? '/ Z' + r.zone : ''}
-        </span>
-      </div>
-    `).join('');
+    logDiv.innerHTML = recent.map(r => {
+      if (r.type === 'timeout') {
+        return `
+          <div class="log-item" style="background:var(--yellow);font-weight:700;">
+            <span class="pt">${r.scoreUsAfter}-${r.scoreThemAfter}</span>
+            <span class="desc">タイムアウト (${r.side === 'us' ? '自' : '相手'})</span>
+          </div>
+        `;
+      }
+      return `
+        <div class="log-item">
+          <span class="pt">${r.scoreUsAfter}-${r.scoreThemAfter}</span>
+          <span class="desc">
+            ${escapeHtml(r.typeLabel)}
+            ${r.detail ? '【' + escapeHtml(r.detail) + '】' : ''}
+            ${r.player ? '/ ' + escapeHtml(r.player) : ''}
+            ${r.zone ? '/ Z' + r.zone : ''}
+          </span>
+        </div>
+      `;
+    }).join('');
   }
 }
 
@@ -2426,21 +2579,23 @@ function getAllRallies() {
 }
 
 function renderSummary(rallies) {
-  const total = rallies.length;
-  const usPoints = rallies.filter(r => POINT_TYPES[r.type].side === 'us').length;
-  const themPoints = rallies.filter(r => POINT_TYPES[r.type].side === 'them').length;
+  // タイムアウトは集計から除外
+  const pointRallies = rallies.filter(r => r.type !== 'timeout');
+  const total = pointRallies.length;
+  const usPoints = pointRallies.filter(r => POINT_TYPES[r.type] && POINT_TYPES[r.type].side === 'us').length;
+  const themPoints = pointRallies.filter(r => POINT_TYPES[r.type] && POINT_TYPES[r.type].side === 'them').length;
   const counts = {};
   for (const t of Object.keys(POINT_TYPES)) {
-    counts[t] = rallies.filter(r => effectiveType(r) === t).length;
+    counts[t] = pointRallies.filter(r => effectiveType(r) === t).length;
   }
   // SO%/PS%
-  const usServeRallies = rallies.filter(r => r.servingSide === 'us');
-  const themServeRallies = rallies.filter(r => r.servingSide === 'them');
+  const usServeRallies = pointRallies.filter(r => r.servingSide === 'us');
+  const themServeRallies = pointRallies.filter(r => r.servingSide === 'them');
   const usSO = themServeRallies.length > 0
-    ? Math.round(themServeRallies.filter(r => POINT_TYPES[r.type].side === 'us').length / themServeRallies.length * 100)
+    ? Math.round(themServeRallies.filter(r => POINT_TYPES[r.type] && POINT_TYPES[r.type].side === 'us').length / themServeRallies.length * 100)
     : 0;
   const usPS = usServeRallies.length > 0
-    ? Math.round(usServeRallies.filter(r => POINT_TYPES[r.type].side === 'us').length / usServeRallies.length * 100)
+    ? Math.round(usServeRallies.filter(r => POINT_TYPES[r.type] && POINT_TYPES[r.type].side === 'us').length / usServeRallies.length * 100)
     : 0;
 
   return `
@@ -2458,19 +2613,22 @@ function renderSummary(rallies) {
       <h2>POINT TYPES</h2>
       <table class="stat-table">
         <tr><th>項目</th><th>回数</th></tr>
-        <tr><td>自エース</td><td>${counts.us_ace}</td></tr>
-        <tr><td>自スパイク決定</td><td>${counts.us_kill}</td></tr>
-        <tr><td>自ブロック決定</td><td>${counts.us_block}</td></tr>
+        <tr><td>サービスエース</td><td>${counts.us_ace}</td></tr>
+        <tr><td>スパイク決定</td><td>${counts.us_kill}</td></tr>
+        <tr><td>ブロック決定</td><td>${counts.us_block}</td></tr>
         <tr><td>相手ミス(獲得)</td><td>${counts.them_err}</td></tr>
-        <tr class="row-danger"><td>被エース</td><td>${counts.them_ace}</td></tr>
+        <tr class="row-danger"><td>被サービスエース</td><td>${counts.them_ace}</td></tr>
         <tr class="row-danger"><td>被スパイク失点</td><td>${counts.them_kill}</td></tr>
-        <tr class="row-warn"><td>自サーブミス</td><td>${counts.us_serve_err}</td></tr>
-        <tr class="row-warn"><td>自スパイクミス</td><td>${counts.us_spike_err}</td></tr>
-        <tr class="row-warn"><td>その他自ミス</td><td>${counts.us_other_err}</td></tr>
+        <tr class="row-warn"><td>サーブミス</td><td>${counts.us_serve_err}</td></tr>
+        <tr class="row-warn"><td>スパイクミス</td><td>${counts.us_spike_err}</td></tr>
+        <tr class="row-warn"><td>カバーミス</td><td>${counts.us_cover_err || 0}</td></tr>
+        <tr class="row-warn"><td>トスミス</td><td>${counts.us_toss_err || 0}</td></tr>
+        <tr class="row-warn"><td>返球ミス</td><td>${counts.us_return_err || 0}</td></tr>
+        <tr class="row-warn"><td>その他ミス</td><td>${counts.us_other_err}</td></tr>
         <tr class="row-warn"><td>自反則</td><td>${counts.us_violation || 0}</td></tr>
       </table>
       <p style="font-size:11px;color:var(--text-tertiary);margin-top:10px;letter-spacing:0.04em;">
-        ※ レシーブミスは「被エース」、ディグミスは「被スパイク失点」に集計しています。
+        ※ レシーブミスは「被サービスエース」、ディグミスは「被スパイク失点」に集計しています。
       </p>
     </div>
     ${renderDetailBreakdown(rallies)}
@@ -2600,7 +2758,9 @@ function renderIndividual(rallies) {
 
     // その他
     const blocks = rallies.filter(r => r.type === 'us_block' && r.player === p.name).length;
-    const otherErr = rallies.filter(r => r.type === 'us_other_err' && r.player === p.name).length;
+    // 個人責任のミス: 新ミスタイプ(レシーブ/ディグ/カバー/トス/返球/その他)を全部足す
+    const otherErrTypes = ['us_other_err', 'us_recv_err', 'us_dig_err', 'us_cover_err', 'us_toss_err', 'us_return_err'];
+    const otherErr = rallies.filter(r => otherErrTypes.includes(r.type) && r.player === p.name).length;
 
     return { name: p.name, aces, serveErr, serveAttempts, serveEff, kills, spikeErr, spikeAttempts, spikeEff, blocks, otherErr };
   });
@@ -2659,14 +2819,16 @@ function renderIndividual(rallies) {
 }
 
 function renderRotation(rallies) {
+  // タイムアウト除外
+  const pointRallies = rallies.filter(r => r.type !== 'timeout');
   // ローテ別 SO%/PS%/被エース等
   const rows = [];
   for (let r = 1; r <= 6; r++) {
-    const rotRallies = rallies.filter(x => x.rotation === r);
+    const rotRallies = pointRallies.filter(x => x.rotation === r);
     const usServe = rotRallies.filter(x => x.servingSide === 'us');
     const themServe = rotRallies.filter(x => x.servingSide === 'them');
-    const usServeWon = usServe.filter(x => POINT_TYPES[x.type].side === 'us').length;
-    const themServeWon = themServe.filter(x => POINT_TYPES[x.type].side === 'us').length;
+    const usServeWon = usServe.filter(x => POINT_TYPES[x.type] && POINT_TYPES[x.type].side === 'us').length;
+    const themServeWon = themServe.filter(x => POINT_TYPES[x.type] && POINT_TYPES[x.type].side === 'us').length;
     const ps = usServe.length > 0 ? Math.round(usServeWon / usServe.length * 100) : 0;
     const so = themServe.length > 0 ? Math.round(themServeWon / themServe.length * 100) : 0;
     const aceLost = rotRallies.filter(x => effectiveType(x) === 'them_ace').length;
@@ -2747,11 +2909,12 @@ function exportSummaryCSV() {
     const spikeAtt = kills + spikeErr + spikeCont;
     const spikeEff = spikeAtt > 0 ? Math.round((kills - spikeErr) / spikeAtt * 100) + '%' : '';
 
+    const otherErrTypes = ['us_other_err', 'us_recv_err', 'us_dig_err', 'us_cover_err', 'us_toss_err', 'us_return_err'];
     rows.push([
       p.name, serveAtt, aces, serveErr, serveEff,
       spikeAtt, kills, spikeErr, spikeEff,
       rallies.filter(r => r.type === 'us_block' && r.player === p.name).length,
-      rallies.filter(r => r.type === 'us_other_err' && r.player === p.name).length
+      rallies.filter(r => otherErrTypes.includes(r.type) && r.player === p.name).length
     ]);
   }
   rows.push([]);
