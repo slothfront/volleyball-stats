@@ -1805,6 +1805,9 @@ function closeModal(id) { document.getElementById(id).classList.remove('active')
 
 // ============ ホーム ============
 function renderHome() {
+  // すべての保存済み試合データに対して重複セットをクリーンアップ
+  cleanupAllMatchesSets();
+
   const list = JSON.parse(localStorage.getItem('vb_matches') || '[]');
   // 新しい順に
   list.sort((a, b) => (b.matchId || '').localeCompare(a.matchId || ''));
@@ -1896,6 +1899,37 @@ function cleanupDuplicateSets() {
   }
   state.sets = Array.from(seen.values()).sort((a, b) => a.set - b.set);
   saveMatch();
+}
+
+// localStorage の全試合に対して重複セットをクリーンアップ(過去のバグの後始末)
+function cleanupAllMatchesSets() {
+  const raw = localStorage.getItem('vb_matches');
+  if (!raw) return;
+  let list;
+  try {
+    list = JSON.parse(raw);
+  } catch (e) {
+    return;
+  }
+  if (!Array.isArray(list)) return;
+
+  let modified = false;
+  list.forEach(m => {
+    if (!m.sets || m.sets.length === 0) return;
+    const seen = new Map();
+    for (const s of m.sets) {
+      seen.set(s.set, s);
+    }
+    const cleaned = Array.from(seen.values()).sort((a, b) => a.set - b.set);
+    if (cleaned.length !== m.sets.length) {
+      m.sets = cleaned;
+      modified = true;
+    }
+  });
+
+  if (modified) {
+    localStorage.setItem('vb_matches', JSON.stringify(list));
+  }
 }
 
 // 完了試合を編集モードで再開(targetSet 省略時は最後のセット)
@@ -2638,6 +2672,8 @@ let heatmapType = 'them_ace';
 let heatmapRotFilter = 'all';
 
 function renderStats() {
+  // 念のため重複セットをクリーンアップ(過去バグの自己修復)
+  cleanupDuplicateSets();
   // セット選択UIを構築
   renderStatsSetSelector();
 
