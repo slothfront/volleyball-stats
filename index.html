@@ -348,6 +348,19 @@ input[type="number"] {
   border-radius: 50%;
   animation: pulse 1.4s infinite;
 }
+.opponent-name {
+  font-family: 'Noto Sans JP', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--black);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex-shrink: 1;
+}
+.opponent-name:empty { display: none; }
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
@@ -1085,6 +1098,7 @@ input[type="number"] {
         <span class="live-dot"></span>
         <span class="live-text">REC</span>
       </span>
+      <span id="topOpponent" class="opponent-name"></span>
       <span id="topMeta">SET 1 · SERVE: US</span>
     </div>
   </div>
@@ -1999,7 +2013,7 @@ function openPlayerModal(type) {
   let candidates;
   if (type === 'us_block') {
     // 前衛 = P2, P3, P4 = ローテ後の lineup index (1 + rot) % 6, (2 + rot) % 6, (3 + rot) % 6
-    // ※ rotation: P{pos}にいる選手 = startingLineup[(pos - 1 - rotationIndex + 6) % 6]
+    // ※ rotation: P{pos}にいる選手 = startingLineup[(pos - 1 + rotationIndex) % 6]
     const frontPositions = [2, 3, 4];
     candidates = frontPositions.map(pos => {
       const lineupIdx = (pos - 1 + state.rotationIndex) % 6;
@@ -2046,23 +2060,25 @@ function openZoneModal(type) {
   document.getElementById('modalZoneTitle').textContent = `${pt.label} - 落下ゾーン`;
 
   // 全部「自分から見たレイアウト」に統一する
-  // 自コート: ネット=上、自分のエンド=下。標準のゾーン番号
-  // 相手コート: 相手のエンド=上(自分から遠い)、ネット=下(自分の手前)。
-  //            相手視点のゾーン番号を、自分視点の左右で配置 = 左右反転
+  // どちらのコートも「ネット=下、エンドライン=上」に統一
+  // ボールが手前(ネット)から飛んできて、コートのどこに落ちるか、という視覚化
   let zones, topHTML, bottomHTML;
   if (pt.zoneCourt === 'us') {
+    // 自コート: 上から エンドライン → 中間 → ネット
     zones = [
-      [4, 3, 2],  // ネット際
+      [5, 6, 1],  // 自エンド側 (画面上)
       [7, 8, 9],  // 中間
-      [5, 6, 1]   // 自エンド
+      [4, 3, 2]   // ネット際 (画面下)
     ];
-    topHTML = '<div class="net-visual"></div>';
-    bottomHTML = '<p class="zone-label">ENDLINE</p>';
+    topHTML = '<p class="zone-label">ENDLINE</p>';
+    bottomHTML = '<div class="net-visual"></div>';
   } else {
+    // 相手コート: 上から エンドライン(相手) → 中間 → ネット
+    // 相手視点のゾーン番号を、自分視点の左右で配置 = 左右反転
     zones = [
-      [1, 6, 5],  // 相手エンド側 (自分から遠い)
-      [9, 8, 7],  // 中間 (左右反転)
-      [2, 3, 4]   // ネット側 (自分から近い)
+      [1, 6, 5],  // 相手エンド側 (画面上)
+      [9, 8, 7],  // 中間
+      [2, 3, 4]   // ネット際 (画面下)
     ];
     topHTML = '<p class="zone-label">ENDLINE</p>';
     bottomHTML = '<div class="net-visual"></div>';
@@ -2224,6 +2240,11 @@ function renderRecord() {
   }
   document.getElementById('topMeta').textContent =
     `SET ${state.currentSet} · ROT R${state.rotationIndex + 1} · SERVE: ${state.serving === 'us' ? 'US' : 'OPP'}`;
+  // 対戦相手名
+  const oppEl = document.getElementById('topOpponent');
+  if (oppEl) {
+    oppEl.textContent = state.opponent ? `vs ${state.opponent}` : '';
+  }
   document.getElementById('rotationNum').textContent = state.rotationIndex + 1;
 
   // ローテ表示
@@ -2507,15 +2528,12 @@ function renderHeatmap(rallies) {
   const max = Math.max(...Object.values(zoneCounts), 1);
 
   const ptInfo = POINT_TYPES[heatmapType];
+  // どちらのコートも「ネット=下、エンドライン=上」に統一
   const zones = ptInfo.zoneCourt === 'us'
-    ? [[4,3,2],[7,8,9],[5,6,1]]
+    ? [[5,6,1],[7,8,9],[4,3,2]]
     : [[1,6,5],[9,8,7],[2,3,4]];
-  const topHTML = ptInfo.zoneCourt === 'us'
-    ? '<div class="net-visual"></div>'
-    : '<p class="zone-label">ENDLINE</p>';
-  const bottomHTML = ptInfo.zoneCourt === 'us'
-    ? '<p class="zone-label">ENDLINE</p>'
-    : '<div class="net-visual"></div>';
+  const topHTML = '<p class="zone-label">ENDLINE</p>';
+  const bottomHTML = '<div class="net-visual"></div>';
 
   return `
     <div class="card">
@@ -2651,7 +2669,7 @@ function renderRotation(rallies) {
     const themServeWon = themServe.filter(x => POINT_TYPES[x.type].side === 'us').length;
     const ps = usServe.length > 0 ? Math.round(usServeWon / usServe.length * 100) : 0;
     const so = themServe.length > 0 ? Math.round(themServeWon / themServe.length * 100) : 0;
-    const aceLost = rotRallies.filter(x => x.type === 'them_ace').length;
+    const aceLost = rotRallies.filter(x => effectiveType(x) === 'them_ace').length;
     rows.push({ r, total: rotRallies.length, so, ps, aceLost });
   }
   return `
