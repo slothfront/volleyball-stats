@@ -453,6 +453,28 @@ input[type="number"] {
   margin-bottom: 4px;
 }
 
+.rotation-quick-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 2px dashed rgba(244, 240, 232, 0.4);
+  flex-wrap: wrap;
+}
+.rotation-quick-actions .btn {
+  background: var(--paper);
+  font-size: 10px;
+  padding: 6px 10px;
+  border-width: 2px;
+  box-shadow: 2px 2px 0 var(--black);
+  letter-spacing: 0.04em;
+}
+.rotation-quick-actions .btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 var(--black);
+}
+
 /* ====== SECTION LABELS ====== */
 .section-label {
   font-family: 'Archivo Black', sans-serif;
@@ -1142,6 +1164,11 @@ input[type="number"] {
         ROTATION R<span id="rotationNum">1</span> · SERVER: <span class="server-name" id="serverName">-</span>
       </div>
       <div class="rotation-grid" id="rotationGrid"></div>
+      <div class="rotation-quick-actions">
+        <button class="btn small outline" onclick="quickToggleServe()" title="サーブ権だけ切り替え">⇄ サーブ権切替</button>
+        <button class="btn small outline" onclick="quickRotate(-1)" title="ローテを1つ戻す">↶ ローテ-1</button>
+        <button class="btn small outline" onclick="quickRotate(1)" title="ローテを1つ進める">↷ ローテ+1</button>
+      </div>
     </div>
 
     <div class="section-label">OUR POINTS</div>
@@ -1332,13 +1359,13 @@ input[type="number"] {
     <p style="font-size:14px;color:var(--text-secondary);">
       現在の点数: <span id="endsetScore" style="font-weight:700;"></span>
     </p>
-    <p style="font-size:13px;color:var(--text-secondary);">
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">
       次のセットに進むと、現在のセットは確定されます。
     </p>
-    <div class="row" style="margin-top:12px;">
-      <button class="btn secondary" onclick="closeModal('modal-endset')">キャンセル</button>
-      <button class="btn success" onclick="confirmEndSet()">セット終了</button>
-      <button class="btn danger" onclick="confirmEndMatch()">試合終了</button>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button class="btn success large" onclick="confirmEndSet()">セット終了 → 次のセットへ</button>
+      <button class="btn danger large" onclick="confirmEndMatch()">試合終了</button>
+      <button class="btn secondary large" onclick="closeModal('modal-endset')">キャンセル</button>
     </div>
   </div>
 </div>
@@ -1585,41 +1612,87 @@ function openSubModal(pos) {
   const currentPlayerIdx = state.startingLineup[lineupIdx];
   const currentName = currentPlayerIdx !== null ? state.players[currentPlayerIdx].name : '-';
 
-  document.getElementById('modalSubTitle').textContent = `P${pos} の交代`;
+  document.getElementById('modalSubTitle').textContent = `P${pos} の交代・入替`;
   document.getElementById('modalSubDesc').innerHTML =
-    `現在: <b>${escapeHtml(currentName)}</b><br>新しく入る選手を選んでください`;
+    `現在: <b>${escapeHtml(currentName)}</b><br>` +
+    `<span style="font-size:12px;">コート上の選手 = 入れ替え / ベンチの選手 = 交代</span>`;
 
-  // ベンチ＝出場登録あり かつ 現在コート上にいない選手
+  // 候補1: コート上の他のポジションの選手(自分以外)
+  const onCourtCandidates = [];
+  for (let p = 1; p <= 6; p++) {
+    if (p === pos) continue;
+    const otherLineupIdx = (p - 1 + state.rotationIndex) % 6;
+    const otherPlayerIdx = state.startingLineup[otherLineupIdx];
+    if (otherPlayerIdx !== null) {
+      onCourtCandidates.push({
+        ...state.players[otherPlayerIdx],
+        idx: otherPlayerIdx,
+        currentPos: p,
+        type: 'oncourt'
+      });
+    }
+  }
+
+  // 候補2: ベンチ選手(出場登録あり、コート上にいない)
   const onCourt = new Set(state.startingLineup.filter(x => x !== null));
-  const candidates = state.players
-    .map((p, i) => ({...p, idx: i}))
+  const benchCandidates = state.players
+    .map((p, i) => ({...p, idx: i, type: 'bench'}))
     .filter(p => p.name && p.active && !onCourt.has(p.idx));
 
   const grid = document.getElementById('modalSubGrid');
-  if (candidates.length === 0) {
-    grid.innerHTML = '<p style="color:var(--text-tertiary);grid-column:1/-1;text-align:center;padding:20px;">交代できる選手がいません<br>(全員コート上にいます)</p>';
+  const noOnCourt = onCourtCandidates.length === 0;
+  const noBench = benchCandidates.length === 0;
+
+  if (noOnCourt && noBench) {
+    grid.innerHTML = '<p style="color:var(--text-tertiary);grid-column:1/-1;text-align:center;padding:20px;">候補がいません</p>';
   } else {
-    grid.innerHTML = candidates.map(p => `
-      <button class="player-btn" onclick="confirmSub(${p.idx})">
-        ${escapeHtml(p.short || p.name)}
-        ${p.number ? '<span class="num">#'+escapeHtml(p.number)+'</span>' : ''}
-      </button>
-    `).join('');
+    let html = '';
+
+    if (!noOnCourt) {
+      html += '<div style="grid-column:1/-1;font-size:11px;letter-spacing:0.1em;color:var(--text-secondary);margin:4px 0;">▼ コート上の選手と入れ替え</div>';
+      html += onCourtCandidates.map(p => `
+        <button class="player-btn" style="background:var(--blue);color:var(--paper);" onclick="confirmSub(${p.idx}, 'oncourt', ${p.currentPos})">
+          ${escapeHtml(p.short || p.name)}
+          <span class="num" style="color:var(--paper);">P${p.currentPos}</span>
+        </button>
+      `).join('');
+    }
+
+    if (!noBench) {
+      html += '<div style="grid-column:1/-1;font-size:11px;letter-spacing:0.1em;color:var(--text-secondary);margin:8px 0 4px;">▼ ベンチから交代</div>';
+      html += benchCandidates.map(p => `
+        <button class="player-btn" onclick="confirmSub(${p.idx}, 'bench')">
+          ${escapeHtml(p.short || p.name)}
+          ${p.number ? '<span class="num">#'+escapeHtml(p.number)+'</span>' : ''}
+        </button>
+      `).join('');
+    }
+
+    grid.innerHTML = html;
   }
 
   document.getElementById('modal-substitute').classList.add('active');
 }
 
-function confirmSub(newPlayerIdx) {
+function confirmSub(targetPlayerIdx, type, otherPos) {
   const pos = pendingSubPos;
   const lineupIdx = (pos - 1 + state.rotationIndex) % 6;
   const oldPlayerIdx = state.startingLineup[lineupIdx];
   const oldName = oldPlayerIdx !== null ? state.players[oldPlayerIdx].name : '-';
-  const newName = state.players[newPlayerIdx].name;
+  const newName = state.players[targetPlayerIdx].name;
 
-  if (!confirm(`P${pos}: ${oldName} → ${newName}\nこの交代を確定しますか?`)) return;
+  if (type === 'oncourt') {
+    // コート上の選手同士の入れ替え
+    if (!confirm(`P${pos}(${oldName}) と P${otherPos}(${newName}) を入れ替えます。よろしいですか?`)) return;
+    const otherLineupIdx = (otherPos - 1 + state.rotationIndex) % 6;
+    state.startingLineup[lineupIdx] = targetPlayerIdx;
+    state.startingLineup[otherLineupIdx] = oldPlayerIdx;
+  } else {
+    // ベンチからの交代
+    if (!confirm(`P${pos}: ${oldName} → ${newName}\nこの交代を確定しますか?`)) return;
+    state.startingLineup[lineupIdx] = targetPlayerIdx;
+  }
 
-  state.startingLineup[lineupIdx] = newPlayerIdx;
   saveMatch();
   closeModal('modal-substitute');
   renderRecord();
@@ -2184,13 +2257,22 @@ function startMatch() {
   if (!state.firstServe) { alert('最初のサーブを選択してください'); return; }
   state.detailMode = document.getElementById('detailMode').checked;
   state.matchId = state.matchId || ('m_' + Date.now());
-  state.currentSet = 1;
-  state.sets = [];
-  state.currentRallies = [];
-  state.scoreUs = 0;
-  state.scoreThem = 0;
-  state.serving = state.firstServe;
-  state.rotationIndex = 0; // P1がサーバー
+
+  // 初回(試合開始)のみ初期化。セット間のスタメン変更時はstateを保持
+  // 判定: matchIdが既に発行済み かつ セットが進行中(currentSet > 1 または sets.length > 0)
+  const isFirstStart = (state.sets.length === 0 && state.currentSet === 1 && state.currentRallies.length === 0);
+  if (isFirstStart) {
+    state.currentSet = 1;
+    state.sets = [];
+    state.currentRallies = [];
+    state.scoreUs = 0;
+    state.scoreThem = 0;
+    state.serving = state.firstServe;
+    state.rotationIndex = 0; // P1がサーバー
+  }
+  // セット間スタメン変更時は serving / rotationIndex / scoreUs / scoreThem を保持
+  // (confirmEndSetで既に次セット用にリセット済み)
+
   saveMatch();
   goRecord();
 }
@@ -2418,6 +2500,34 @@ function undoLast() {
   renderRecord();
 }
 
+// サーブ権だけクイックに切り替え(操作ミスでサーブ権がずれた時用)
+function quickToggleServe() {
+  const newServe = state.serving === 'us' ? 'them' : 'us';
+  const currentLabel = state.serving === 'us' ? '自チーム' : '相手チーム';
+  const newLabel = newServe === 'us' ? '自チーム' : '相手チーム';
+  if (!confirm(`サーブ権を切り替えます\n\n現在: ${currentLabel}\n→ ${newLabel}\n\nよろしいですか?`)) return;
+  state.serving = newServe;
+  saveMatch();
+  renderRecord();
+}
+
+// ローテーションを ±1 (操作ミスでローテがずれた時用)
+function quickRotate(delta) {
+  const oldR = state.rotationIndex + 1;
+  const newRotIdx = (state.rotationIndex + delta + 6) % 6;
+  const newR = newRotIdx + 1;
+  // 新しいサーバー名を表示してわかりやすく
+  const newServerIdx = state.startingLineup[(0 + newRotIdx) % 6];
+  const newServerName = newServerIdx !== null && state.players[newServerIdx]
+    ? (state.players[newServerIdx].short || state.players[newServerIdx].name)
+    : '不明';
+  const direction = delta > 0 ? '進める(時計回り)' : '戻す(反時計回り)';
+  if (!confirm(`ローテーションを${direction}\n\nR${oldR} → R${newR}\nサーバー: ${newServerName}\n\nよろしいですか?`)) return;
+  state.rotationIndex = newRotIdx;
+  saveMatch();
+  renderRecord();
+}
+
 // タイムアウト記録(スコア変動なし、タイミング記録のみ)
 function recordTimeout() {
   document.getElementById('modal-timeout').classList.add('active');
@@ -2616,10 +2726,6 @@ function confirmEndSet() {
   );
   state.serving = choice ? defaultSwap : (defaultSwap === 'us' ? 'them' : 'us');
 
-  if (confirm('スタメンを変更しますか?\n(OK=変更画面へ、キャンセル=同じスタメンで継続)')) {
-    showScreen('screen-setup');
-    return;
-  }
   saveMatch();
   goRecord();
 }
