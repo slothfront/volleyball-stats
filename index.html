@@ -1679,16 +1679,31 @@ function confirmSub(targetPlayerIdx, type, otherPos) {
   const lineupIdx = (pos - 1 + state.rotationIndex) % 6;
   const oldPlayerIdx = state.startingLineup[lineupIdx];
   const oldName = oldPlayerIdx !== null ? state.players[oldPlayerIdx].name : '-';
-  const newName = state.players[targetPlayerIdx].name;
+  const newPlayer = state.players[targetPlayerIdx];
+  const newName = newPlayer.name;
 
+  // リベロが前衛(P2/P3/P4)に入らないかチェック
+  // (リベロは後衛のみプレー可能というルール)
+  const frontPositions = [2, 3, 4];
   if (type === 'oncourt') {
-    // コート上の選手同士の入れ替え
+    // 入替時: targetPlayer は otherPos → pos へ、oldPlayer は pos → otherPos へ
+    // それぞれの新しいポジションがリベロにとって前衛なら警告
+    const oldPlayer = oldPlayerIdx !== null ? state.players[oldPlayerIdx] : null;
+    if (newPlayer.libero && frontPositions.includes(pos)) {
+      if (!confirm(`⚠️ ${newName}(リベロ)が前衛P${pos}に配置されます。\nリベロは通常前衛でプレーできませんが、続行しますか?`)) return;
+    }
+    if (oldPlayer && oldPlayer.libero && frontPositions.includes(otherPos)) {
+      if (!confirm(`⚠️ ${oldName}(リベロ)が前衛P${otherPos}に配置されます。\nリベロは通常前衛でプレーできませんが、続行しますか?`)) return;
+    }
     if (!confirm(`P${pos}(${oldName}) と P${otherPos}(${newName}) を入れ替えます。よろしいですか?`)) return;
     const otherLineupIdx = (otherPos - 1 + state.rotationIndex) % 6;
     state.startingLineup[lineupIdx] = targetPlayerIdx;
     state.startingLineup[otherLineupIdx] = oldPlayerIdx;
   } else {
     // ベンチからの交代
+    if (newPlayer.libero && frontPositions.includes(pos)) {
+      if (!confirm(`⚠️ ${newName}(リベロ)が前衛P${pos}に入ります。\nリベロは通常前衛でプレーできませんが、続行しますか?`)) return;
+    }
     if (!confirm(`P${pos}: ${oldName} → ${newName}\nこの交代を確定しますか?`)) return;
     state.startingLineup[lineupIdx] = targetPlayerIdx;
   }
@@ -1831,6 +1846,8 @@ function goSetup() {
     serving: null,
     rotationIndex: 0,
     detailMode: false,
+    finished: false,
+    currentSetStartServe: null,
   };
   // 画面遷移を最優先(描画でエラー出ても画面は切り替わるように)
   showScreen('screen-setup');
@@ -1898,7 +1915,19 @@ function renderHome() {
         false
       ));
     // currentRalliesがある = まだ「セット終了」されていない = 進行中
-    const isLive = m.currentRallies && (m.currentRallies.length > 0 || m.scoreUs > 0 || m.scoreThem > 0);
+    // 「進行中の試合か」の判定: 明示的な finished フラグを優先、
+    // フラグがない既存データは中身から推定
+    let isLive;
+    if (typeof m.finished === 'boolean') {
+      isLive = !m.finished;
+    } else {
+      // 旧データの推定: 何かしら記録があれば進行中扱い
+      const hasCurrentData = m.currentRallies && (m.currentRallies.length > 0 || m.scoreUs > 0 || m.scoreThem > 0);
+      const hasCompletedSets = m.sets && m.sets.length > 0;
+      // 完了セットはあるが現セットが0-0 の場合、「セット間で一時停止」とみなして LIVE
+      // ただし試合終了画面に到達したものは finished=true で記録されるはずなのでここに来ない
+      isLive = hasCurrentData || hasCompletedSets;
+    }
     const setCount = m.sets ? m.sets.length : 0;
     const wins = m.sets ? m.sets.filter(s => s.winner === 'us').length : 0;
     const losses = setCount - wins;
@@ -1933,6 +1962,15 @@ function resumeMatch(id) {
   const m = list.find(x => x.matchId === id);
   if (!m) return;
   state = JSON.parse(JSON.stringify(m));
+  state.finished = false; // 進行中扱いに(誤って試合終了した場合の保険)
+  // 旧データ互換: currentSetStartServe が無ければ推定
+  if (!state.currentSetStartServe) {
+    if (state.currentRallies && state.currentRallies.length > 0) {
+      state.currentSetStartServe = state.currentRallies[0].servingSide;
+    } else {
+      state.currentSetStartServe = state.firstServe;
+    }
+  }
   goRecord();
 }
 
@@ -1958,9 +1996,22 @@ function loadMatch(id) {
   state = JSON.parse(JSON.stringify(m));
   // 重複セットのクリーンアップ(過去のバグの後始末)
   cleanupDuplicateSets();
-  // 完了済みのみ閲覧モードで開く(終了画面)
-  renderFinishScreen();
-  showScreen('screen-finish');
+  // 旧データ互換: currentSetStartServe が無ければ推定
+  if (!state.currentSetStartServe) {
+    if (state.currentRallies && state.currentRallies.length > 0) {
+      state.currentSetStartServe = state.currentRallies[0].servingSide;
+    } else {
+      state.currentSetStartServe = state.firstServe;
+    }
+  }
+  // 完了試合なら集計画面、未完了試合なら記録画面に遷移
+  if (state.finished) {
+    renderFinishScreen();
+    showScreen('screen-finish');
+  } else {
+    // 未完了試合(セット間で一時停止した試合など)は記録画面で再開
+    goRecord();
+  }
 }
 
 // 同じセット番号の重複を除去(最後のものを優先)
@@ -2036,15 +2087,20 @@ function reopenMatch(targetSet) {
   state.currentRallies = targetSetData.rallies || [];
   state.scoreUs = targetSetData.scoreUs;
   state.scoreThem = targetSetData.scoreThem;
+  state.finished = false; // 編集再開なので未完了に戻す
+
+  // currentSetStartServe を復元: そのセットの最初のラリーから推定
+  if (state.currentRallies.length > 0) {
+    state.currentSetStartServe = state.currentRallies[0].servingSide;
+  } else if (state.currentSet === 1) {
+    state.currentSetStartServe = state.firstServe;
+  } else {
+    // ラリーがなくセット1でもない場合: 既存値があればそれ、なければ firstServe
+    state.currentSetStartServe = state.currentSetStartServe || state.firstServe;
+  }
 
   // serving と rotationIndex を再計算
-  if (state.currentSet === 1) {
-    recomputeRotationFromRallies();
-  } else if (state.currentRallies.length > 0) {
-    const lastRally = state.currentRallies[state.currentRallies.length - 1];
-    state.serving = lastRally.servingSide;
-    state.rotationIndex = state.rotationIndex || 0;
-  }
+  recomputeRotationFromRallies();
 
   saveMatch();
   goRecord();
@@ -2269,6 +2325,7 @@ function startMatch() {
     state.scoreThem = 0;
     state.serving = state.firstServe;
     state.rotationIndex = 0; // P1がサーバー
+    state.currentSetStartServe = state.firstServe;
   }
   // セット間スタメン変更時は serving / rotationIndex / scoreUs / scoreThem を保持
   // (confirmEndSetで既に次セット用にリセット済み)
@@ -2312,11 +2369,12 @@ function openPlayerModal(type) {
     }).filter(idx => idx !== null).map(idx => ({...state.players[idx], idx}));
   } else {
     candidates = onCourtIdxs.map(idx => ({...state.players[idx], idx}));
-    // リベロが候補に出るタイプなら、出場しているリベロも追加
+    // リベロが候補に出るタイプなら、出場しているリベロも追加(コート上に既にいる場合は除外)
     if (pt.liberoEligible) {
+      const onCourtSet = new Set(onCourtIdxs);
       const liberos = state.players
         .map((p, i) => ({...p, idx: i}))
-        .filter(p => p.active && p.name && p.libero);
+        .filter(p => p.active && p.name && p.libero && !onCourtSet.has(p.idx));
       candidates = candidates.concat(liberos);
     }
   }
@@ -2555,7 +2613,13 @@ function confirmTimeout(side) {
 }
 
 function recomputeRotationFromRallies() {
-  state.serving = state.firstServe;
+  // 現セットの開始時サーブ権・ローテを初期値として再計算
+  // - currentSetStartServe: そのセット開始時のサーブ権(セット間の確認で決定)
+  // - 第1セットは firstServe を使用
+  const initialServe = (state.currentSet === 1)
+    ? state.firstServe
+    : (state.currentSetStartServe || state.firstServe);
+  state.serving = initialServe;
   state.rotationIndex = 0;
   for (const r of state.currentRallies) {
     if (r.type === 'timeout') continue; // タイムアウトはローテに影響しない
@@ -2725,6 +2789,8 @@ function confirmEndSet() {
     `キャンセル = ${defaultSwap === 'us' ? '相手チーム' : '自チーム'}`
   );
   state.serving = choice ? defaultSwap : (defaultSwap === 'us' ? 'them' : 'us');
+  // この新セットの開始時サーブ権を記録(undoLast/recomputeRotationFromRallies で使用)
+  state.currentSetStartServe = state.serving;
 
   saveMatch();
   goRecord();
@@ -2741,6 +2807,7 @@ function confirmEndMatch() {
     winner: state.scoreUs > state.scoreThem ? 'us' : 'them'
   });
   state.currentRallies = [];
+  state.finished = true; // 試合完了フラグ
   saveMatch();
   renderFinishScreen();
   showScreen('screen-finish');
@@ -3241,9 +3308,13 @@ function exportSummaryCSV() {
     const rot = rallies.filter(x => x.rotation === r);
     const us = rot.filter(x => x.servingSide === 'us');
     const them = rot.filter(x => x.servingSide === 'them');
-    const ps = us.length > 0 ? Math.round(us.filter(x => POINT_TYPES[x.type].side === 'us').length / us.length * 100) : 0;
-    const so = them.length > 0 ? Math.round(them.filter(x => POINT_TYPES[x.type].side === 'us').length / them.length * 100) : 0;
-    const aces = rot.filter(x => x.type === 'them_ace').length;
+    const ps = us.length > 0
+      ? Math.round(us.filter(x => POINT_TYPES[x.type] && POINT_TYPES[x.type].side === 'us').length / us.length * 100)
+      : 0;
+    const so = them.length > 0
+      ? Math.round(them.filter(x => POINT_TYPES[x.type] && POINT_TYPES[x.type].side === 'us').length / them.length * 100)
+      : 0;
+    const aces = rot.filter(x => effectiveType(x) === 'them_ace').length;
     rows.push([r, rot.length, so + '%', ps + '%', aces]);
   }
 
