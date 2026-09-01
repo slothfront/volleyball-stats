@@ -1026,6 +1026,21 @@ input[type="number"] {
   from { opacity: 0; transform: translateX(-12px); }
   to { opacity: 1; transform: translateX(0); }
 }
+
+/* ---- 詳細記録バー ---- */
+.detail-bar{border:2px solid var(--black);background:var(--paper);padding:10px 12px;margin-bottom:14px;}
+.detail-bar-head{font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--text-secondary);margin-bottom:8px;}
+.detail-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--border,#ddd);}
+.detail-row:first-of-type{border-top:0;}
+.detail-key{font-size:13px;font-weight:700;min-width:96px;}
+.detail-val{font-size:14px;font-weight:700;flex:1;min-width:110px;}
+.detail-val.empty{color:var(--red,#c0392b);}
+.detail-btns{display:flex;gap:6px;flex-wrap:wrap;}
+.rate-btn{font-family:inherit;font-size:19px;font-weight:800;min-width:44px;padding:6px 10px;
+  border:2px solid var(--black);background:var(--paper);cursor:pointer;line-height:1.2;}
+.rate-btn:hover{background:var(--yellow);}
+.rating-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.rating-grid .rate-btn{font-size:26px;padding:16px 6px;width:100%;}
 </style>
 </head>
 <body>
@@ -1116,11 +1131,19 @@ input[type="number"] {
   <div class="card">
     <h2>RECORD MODE</h2>
     <label style="display:flex; align-items:center; gap:10px; font-size:15px; font-weight:500; cursor:pointer; margin:0; text-transform:none; letter-spacing:0; color:var(--black);">
-      <input type="checkbox" id="detailMode" style="width:22px; height:22px; accent-color:var(--blue);">
-      詳細を記録する（ミス内訳・反則種別）
+      <input type="checkbox" id="detailMode" onchange="renderDefaultSetterSelect()" style="width:22px; height:22px; accent-color:var(--blue);">
+      詳細を記録する（ミス内訳・反則種別・1本目の評価・セッター）
     </label>
+    <div id="defaultSetterWrap" style="margin-top:12px; display:none;">
+      <label style="display:block;font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--text-secondary);margin-bottom:6px;">既定のセッター</label>
+      <select id="defaultSetterSelect" onchange="setDefaultSetter(this.value)" style="width:100%;padding:10px;border:2px solid var(--black);background:var(--paper);font-family:inherit;font-size:15px;font-weight:700;"></select>
+      <p style="font-size:12px; color:var(--ink-2,#4a3f35); margin:6px 0 0; line-height:1.5;">
+        スパイクの記録に自動で入ります。ツーアタックや崩れて別の人が上げたラリーは、記録画面で「別の人」から変えられます。
+      </p>
+    </div>
     <p style="font-size:12px; color:var(--ink-2,#4a3f35); margin:8px 0 0; line-height:1.5;">
-      ON にすると、ミス・反則を記録するときに種別（ネット/アウト/ハンドリングなど）を選ぶ画面が出ます。OFF なら素早く記録できます。
+      ON にすると、ミス・反則の種別に加えて、<b>1本目（サーブ／レセプション）の評価 ◎○△×</b>、<b>チャンスボール処理</b>、<b>トスを上げたセッター</b>を記録できます。<br>
+      映像を止めながら記録する用です。ライブで素早く記録するときは OFF にしてください。
     </p>
   </div>
 
@@ -1168,6 +1191,31 @@ input[type="number"] {
         <button class="btn small outline" onclick="quickToggleServe()" title="サーブ権だけ切り替え">⇄ サーブ権切替</button>
         <button class="btn small outline" onclick="quickRotate(-1)" title="ローテを1つ戻す">↶ ローテ-1</button>
         <button class="btn small outline" onclick="quickRotate(1)" title="ローテを1つ進める">↷ ローテ+1</button>
+      </div>
+    </div>
+
+    <div id="detailBar" class="detail-bar" style="display:none;">
+      <div class="detail-bar-head">詳細記録 — このラリー</div>
+      <div class="detail-row">
+        <span class="detail-key" id="dbFirstKey">1本目</span>
+        <span class="detail-val" id="dbFirstVal">未入力</span>
+        <span class="detail-btns" id="dbFirstBtns"></span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-key">チャンスボール</span>
+        <span class="detail-val" id="dbChanceVal">なし</span>
+        <span class="detail-btns">
+          <button class="btn small outline" onclick="addChanceBall()">＋追加</button>
+          <button class="btn small outline" onclick="clearChanceBalls()">消す</button>
+        </span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-key">セッター</span>
+        <span class="detail-val" id="dbSetterVal">—</span>
+        <span class="detail-btns">
+          <button class="btn small outline" onclick="overrideSetter()">別の人</button>
+          <button class="btn small outline" onclick="resetSetterOverride()">戻す</button>
+        </span>
       </div>
     </div>
 
@@ -1237,6 +1285,18 @@ input[type="number"] {
     <h3 id="modalDetailTitle">詳細を選択</h3>
     <div class="player-grid" id="modalDetailGrid" style="grid-template-columns: 1fr 1fr;"></div>
     <button class="btn secondary large" style="margin-top:14px;" onclick="closeModal('modal-detail')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ============ 評価モーダル(詳細モード時) ============ -->
+<div class="modal-overlay" id="modal-rating">
+  <div class="modal">
+    <h3 id="modalRatingTitle">評価を選択</h3>
+    <p style="font-size:12px;color:var(--text-tertiary);margin:0 0 10px;line-height:1.6;">
+      ◎ そのままトスに入れた ／ ○ 返った ／ △ 崩れた ／ × ミス
+    </p>
+    <div class="rating-grid" id="modalRatingGrid"></div>
+    <button class="btn secondary large" style="margin-top:14px;" onclick="closeModal('modal-rating')">キャンセル</button>
   </div>
 </div>
 
@@ -1349,6 +1409,7 @@ input[type="number"] {
       <button class="tab" onclick="switchStatsTab('rotation')">ROTATION</button>
     </div>
     <div id="statsTabContent"></div>
+    <div id="statsDetail"></div>
   </div>
 </div>
 
@@ -1443,7 +1504,22 @@ let state = {
   serving: null,        // 'us' | 'them'
   rotationIndex: 0,     // P1がスタメンのどの位置から始まったか(自チームのみ)
   detailMode: false,    // 詳細記録モード(ミス・反則の種別を記録)
+  defaultSetter: null,  // 既定セッターの playerIndex。詳細モードでスパイクに自動付与
 };
+
+// ---- 詳細モード: このラリー分の一時保持（点が入ったときにレコードへ合流） ----
+let pendingFirstBall = null;      // {kind:'serve'|'recv', player, rating}
+let pendingChance = [];           // [{player, rating}]
+let pendingSetterOverride = null; // このラリーだけセッターを差し替える場合の名前
+const RATING_MARKS = ['×', '△', '○', '◎'];   // index = rating(0-3)
+function ratingMark(v){ return (v===null||v===undefined) ? '—' : (RATING_MARKS[v] || String(v)); }
+function clearPendingDetail(){ pendingFirstBall = null; pendingChance = []; pendingSetterOverride = null; }
+function currentSetterName(){
+  if (pendingSetterOverride) return pendingSetterOverride;
+  if (state.defaultSetter === null || state.defaultSetter === undefined) return '';
+  const p = state.players[state.defaultSetter];
+  return p ? p.name : '';
+}
 
 // ラリー: { type, player, zone, scoreUsAfter, scoreThemAfter, rotation, server, set, ts }
 
@@ -1846,6 +1922,7 @@ function goSetup() {
     serving: null,
     rotationIndex: 0,
     detailMode: false,
+    defaultSetter: null,
     finished: false,
     currentSetStartServe: null,
   };
@@ -2240,7 +2317,23 @@ function addPlayerRow() {
   renderPlayerList();
 }
 
+function renderDefaultSetterSelect() {
+  const wrap = document.getElementById('defaultSetterWrap');
+  const sel = document.getElementById('defaultSetterSelect');
+  if (!wrap || !sel) return;
+  wrap.style.display = document.getElementById('detailMode').checked ? '' : 'none';
+  const items = state.players.map((p,i)=>({...p,idx:i})).filter(p=>p.name);
+  sel.innerHTML = '<option value="">（設定しない）</option>' + items.map(p=>
+    `<option value="${p.idx}" ${state.defaultSetter===p.idx?'selected':''}>${p.number?'#'+escapeHtml(p.number)+' ':''}${escapeHtml(p.name)}</option>`
+  ).join('');
+}
+function setDefaultSetter(v) {
+  state.defaultSetter = (v === '' ? null : parseInt(v, 10));
+  saveMatch();
+}
+
 function renderStartingLineup() {
+  renderDefaultSetterSelect();
   const div = document.getElementById('startingLineup');
   // リベロはスタメン6人には入らない（後衛のみ・ローテに参加しない）
   const active = state.players.map((p, i) => ({...p, idx: i})).filter(p => p.active && p.name && !p.libero);
@@ -2393,6 +2486,127 @@ function openPlayerModal(type) {
   document.getElementById('modal-player').classList.add('active');
 }
 
+// ============ 詳細モード: 1本目・チャンスボール・セッター ============
+let genericPlayerCb = null;
+let ratingCb = null;
+
+function onCourtPlayers(){
+  return state.startingLineup
+    .map((idx,i)=>({idx,i}))
+    .filter(o=>o.idx!==null)
+    .map(o=>({...state.players[o.idx], idx:o.idx}))
+    .filter(p=>p && p.name);
+}
+
+function openGenericPlayerModal(title, cb){
+  genericPlayerCb = cb;
+  document.getElementById('modalPlayerTitle').textContent = title;
+  const items = onCourtPlayers();
+  const libs = state.players.map((p,i)=>({...p,idx:i}))
+    .filter(p=>p.libero && p.name && !items.some(x=>x.idx===p.idx));
+  const all = items.concat(libs);
+  document.getElementById('modalPlayerGrid').innerHTML = all.map(p=>`
+    <button class="player-btn" onclick="pickGenericPlayer('${escapeAttr(p.name)}')">
+      ${p.number ? `#${escapeHtml(p.number)}<br>` : ''}${escapeHtml(p.short || p.name)}
+    </button>`).join('');
+  document.getElementById('modal-player').classList.add('active');
+}
+function pickGenericPlayer(name){
+  closeModal('modal-player');
+  const cb = genericPlayerCb; genericPlayerCb = null;
+  if (cb) cb(name);
+}
+
+function openRatingModal(title, cb){
+  ratingCb = cb;
+  document.getElementById('modalRatingTitle').textContent = title;
+  document.getElementById('modalRatingGrid').innerHTML =
+    [3,2,1,0].map(v=>`<button class="rate-btn" onclick="pickRating(${v})">${RATING_MARKS[v]}</button>`).join('');
+  document.getElementById('modal-rating').classList.add('active');
+}
+function pickRating(v){
+  closeModal('modal-rating');
+  const cb = ratingCb; ratingCb = null;
+  if (cb) cb(v);
+}
+
+// 自チームサーブ時: サーバーは自動なので評価だけ
+function setServeRating(v){
+  const idx = state.startingLineup[(0 + state.rotationIndex) % 6];
+  const name = idx !== null ? state.players[idx].name : '';
+  pendingFirstBall = { kind:'serve', player:name, rating:v };
+  renderDetailBar();
+}
+// 相手サーブ時: 誰が受けたか → 評価
+function inputReception(){
+  openGenericPlayerModal('レセプション — 誰が受けたか', name => {
+    openRatingModal(`レセプション（${name}）`, v => {
+      pendingFirstBall = { kind:'recv', player:name, rating:v };
+      renderDetailBar();
+    });
+  });
+}
+function clearFirstBall(){ pendingFirstBall = null; renderDetailBar(); }
+
+function addChanceBall(){
+  openGenericPlayerModal('チャンスボール — 誰が処理したか', name => {
+    openRatingModal(`チャンスボール（${name}）`, v => {
+      pendingChance.push({ player:name, rating:v });
+      renderDetailBar();
+    });
+  });
+}
+function clearChanceBalls(){ pendingChance = []; renderDetailBar(); }
+
+function overrideSetter(){
+  openGenericPlayerModal('このラリーのセッター', name => {
+    pendingSetterOverride = name;
+    renderDetailBar();
+  });
+}
+function resetSetterOverride(){ pendingSetterOverride = null; renderDetailBar(); }
+
+function renderDetailBar(){
+  const bar = document.getElementById('detailBar');
+  if (!bar) return;
+  if (!state.detailMode) { bar.style.display = 'none'; return; }
+  bar.style.display = '';
+
+  const keyEl  = document.getElementById('dbFirstKey');
+  const valEl  = document.getElementById('dbFirstVal');
+  const btnsEl = document.getElementById('dbFirstBtns');
+  const isOurServe = state.serving === 'us';
+  keyEl.textContent = isOurServe ? '1本目 サーブ' : '1本目 レセプション';
+
+  if (pendingFirstBall) {
+    valEl.textContent = `${pendingFirstBall.player || '-'} ${ratingMark(pendingFirstBall.rating)}`;
+    valEl.classList.remove('empty');
+    btnsEl.innerHTML = '<button class="btn small outline" onclick="clearFirstBall()">やり直す</button>';
+  } else {
+    valEl.textContent = '未入力';
+    valEl.classList.add('empty');
+    if (isOurServe) {
+      const srvIdx = state.startingLineup[(0 + state.rotationIndex) % 6];
+      const srv = srvIdx !== null ? (state.players[srvIdx].short || state.players[srvIdx].name) : '-';
+      btnsEl.innerHTML = `<span style="font-size:12px;color:var(--text-secondary);align-self:center;margin-right:4px;">${escapeHtml(srv)}</span>` +
+        [3,2,1,0].map(v=>`<button class="rate-btn" onclick="setServeRating(${v})">${RATING_MARKS[v]}</button>`).join('');
+    } else {
+      btnsEl.innerHTML = '<button class="btn small" onclick="inputReception()">入力する</button>';
+    }
+  }
+
+  const cEl = document.getElementById('dbChanceVal');
+  cEl.textContent = pendingChance.length
+    ? pendingChance.map(c=>`${c.player}${ratingMark(c.rating)}`).join('、')
+    : 'なし';
+  cEl.classList.toggle('empty', false);
+
+  const sEl = document.getElementById('dbSetterVal');
+  const sname = currentSetterName();
+  sEl.textContent = sname ? (sname + (pendingSetterOverride ? '（このラリーのみ）' : '')) : '未設定';
+  sEl.classList.toggle('empty', !sname);
+}
+
 function selectPlayer(name) {
   pendingRecord.player = name;
   closeModal('modal-player');
@@ -2510,6 +2724,16 @@ function finalizePoint() {
     ts: Date.now()
   };
 
+  // 詳細モード: 1本目・チャンスボール・セッターをこのラリーに合流させる
+  if (state.detailMode) {
+    if (pendingFirstBall) rally.firstBall = { ...pendingFirstBall };
+    if (pendingChance.length) rally.chance = pendingChance.map(c => ({ ...c }));
+    if (type === 'us_kill' || type === 'us_spike_err' || type === 'spike_attempt') {
+      const sname = currentSetterName();
+      if (sname) rally.setter = sname;
+    }
+  }
+
   rally.scoreUsAfter = state.scoreUs;
   rally.scoreThemAfter = state.scoreThem;
 
@@ -2532,6 +2756,8 @@ function finalizePoint() {
   }
 
   state.currentRallies.push(rally);
+  // ラリーが終わったら一時保持をクリア（'none'＝継続記録では持ち越す）
+  if (pt.side !== 'none') clearPendingDetail();
   saveMatch();
   pendingRecord = null;
   renderRecord();
@@ -2544,6 +2770,7 @@ function undoLast() {
   }
   if (!confirm('直前のラリーを取り消します')) return;
   const last = state.currentRallies.pop();
+  clearPendingDetail();
   // タイムアウトの場合はスコア変動なし
   if (last.type === 'timeout') {
     saveMatch();
@@ -2662,6 +2889,7 @@ function renderRecord() {
     oppEl.textContent = state.opponent ? `vs ${state.opponent}` : '';
   }
   document.getElementById('rotationNum').textContent = state.rotationIndex + 1;
+  renderDetailBar();
 
   // ローテ表示
   // 現在のローテの各ポジションに誰がいるかを表示
@@ -2882,6 +3110,7 @@ function renderStats() {
     }
   }
   switchStatsTab(currentStatsTab);
+  renderDetailStats();
 }
 
 // 集計画面の上部に「全試合 / 第1 / 第2 / 現在」のセレクタを生成
@@ -2938,15 +3167,7 @@ function switchStatsTab(tab) {
   }
 
   // ラリーの取得: フィルタが指定されていればそのセットだけ、そうでなければ全部
-  let rallies;
-  if (statsFilterSet === 'current') {
-    rallies = state.currentRallies || [];
-  } else if (statsFilterSet != null) {
-    const target = state.sets.find(s => s.set === statsFilterSet);
-    rallies = target ? (target.rallies || []) : [];
-  } else {
-    rallies = getAllRallies();
-  }
+  const rallies = getFilteredRallies();
 
   const div = document.getElementById('statsTabContent');
   if (tab === 'summary') div.innerHTML = renderSummary(rallies);
@@ -2958,6 +3179,16 @@ function switchStatsTab(tab) {
 function getAllRallies() {
   const past = state.sets.flatMap(s => s.rallies);
   return [...past, ...state.currentRallies];
+}
+
+// 集計画面のセットフィルタ(null=全試合 / 数値=そのセット / 'current'=進行中)を適用したラリー
+function getFilteredRallies() {
+  if (statsFilterSet === 'current') return state.currentRallies || [];
+  if (statsFilterSet != null) {
+    const target = state.sets.find(s => s.set === statsFilterSet);
+    return target ? (target.rallies || []) : [];
+  }
+  return getAllRallies();
 }
 
 function renderSummary(rallies) {
@@ -3238,16 +3469,102 @@ function renderRotation(rallies) {
   `;
 }
 
+function renderDetailStats() {
+  const el = document.getElementById('statsDetail');
+  if (!el) return;
+  const rallies = getFilteredRallies();
+  const withFB = rallies.filter(r => r.firstBall);
+  const withSetter = rallies.filter(r => r.setter);
+  const withChance = rallies.filter(r => r.chance && r.chance.length);
+  if (!withFB.length && !withSetter.length && !withChance.length) { el.innerHTML = ''; return; }
+
+  // 集計器: name -> {n, sum, cnt[0..3]}
+  const agg = () => ({});
+  const put = (m, name, rating) => {
+    if (!m[name]) m[name] = { n:0, sum:0, c:[0,0,0,0] };
+    m[name].n++; m[name].sum += rating; m[name].c[rating]++;
+  };
+  const serve = agg(), recv = agg(), chance = agg();
+  withFB.forEach(r => {
+    const f = r.firstBall;
+    if (f.rating === null || f.rating === undefined) return;
+    if (f.kind === 'serve') put(serve, f.player || '(不明)', f.rating);
+    else if (f.kind === 'recv') put(recv, f.player || '(不明)', f.rating);
+  });
+  withChance.forEach(r => r.chance.forEach(c => put(chance, c.player || '(不明)', c.rating)));
+
+  const tbl = (title, sub, m) => {
+    const names = Object.keys(m);
+    if (!names.length) return '';
+    names.sort((a,b) => (m[b].sum/m[b].n) - (m[a].sum/m[a].n));
+    let tn=0, ts=0, t3=0, t0=0;
+    const rows = names.map(nm => {
+      const d = m[nm]; tn+=d.n; ts+=d.sum; t3+=d.c[3]; t0+=d.c[0];
+      return `<tr><td>${escapeHtml(nm)}</td><td>${d.n}</td><td>${(d.sum/d.n).toFixed(2)}</td>` +
+             `<td>${d.c[3]}（${(d.c[3]/d.n*100).toFixed(0)}%）</td><td>${d.c[0]}</td>` +
+             `<td style="font-size:15px;letter-spacing:1px;">${'◎'.repeat(d.c[3])}${'○'.repeat(d.c[2])}${'△'.repeat(d.c[1])}${'×'.repeat(d.c[0])}</td></tr>`;
+    }).join('');
+    return `<div class="card"><h2>${title}</h2>
+      <p style="font-size:12px;color:var(--text-tertiary);margin:0 0 8px;">${sub}</p>
+      <div style="overflow-x:auto;"><table class="stats-table"><thead><tr>
+      <th>選手</th><th>本数</th><th>評価</th><th>◎の数</th><th>×</th><th>内訳</th></tr></thead>
+      <tbody>${rows}
+      <tr style="font-weight:800;border-top:2px solid var(--black);">
+        <td>チーム</td><td>${tn}</td><td>${tn?(ts/tn).toFixed(2):'-'}</td>
+        <td>${t3}（${tn?(t3/tn*100).toFixed(0):0}%）</td><td>${t0}</td><td></td></tr>
+      </tbody></table></div></div>`;
+  };
+
+  // セッター: 上げたトス＝スパイク系レコードの数
+  let setterHtml = '';
+  if (withSetter.length) {
+    const m = {};
+    withSetter.forEach(r => {
+      const k = r.setter;
+      if (!m[k]) m[k] = { n:0, kill:0, err:0 };
+      m[k].n++;
+      if (r.type === 'us_kill') m[k].kill++;
+      if (r.type === 'us_spike_err') m[k].err++;
+    });
+    const rows = Object.keys(m).sort((a,b)=>m[b].n-m[a].n).map(nm => {
+      const d = m[nm], eff = d.n ? ((d.kill - d.err) / d.n) : 0;
+      return `<tr><td>${escapeHtml(nm)}</td><td>${d.n}</td><td>${d.kill}</td><td>${d.err}</td>` +
+             `<td>${d.n?(d.kill/d.n*100).toFixed(1)+'%':'-'}</td>` +
+             `<td>${(eff>=0?'':'−')}${Math.abs(eff).toFixed(3).replace('0.','.')}</td></tr>`;
+    }).join('');
+    setterHtml = `<div class="card"><h2>上げたトス（セッター別）</h2>
+      <p style="font-size:12px;color:var(--text-tertiary);margin:0 0 8px;">
+        そのセッターのトスから打たれた本数。効率＝(決定−ミス)÷本数。</p>
+      <div style="overflow-x:auto;"><table class="stats-table"><thead><tr>
+      <th>セッター</th><th>上げた本数</th><th>決定</th><th>ミス</th><th>決定率</th><th>効率</th>
+      </tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  }
+
+  el.innerHTML =
+    '<div class="section-label" style="margin-top:18px;">詳細記録（1本目の評価・セッター）</div>' +
+    tbl('サーブ', '自チームのサーブ。◎＝相手を大きく崩した／×＝サーブミス。', serve) +
+    tbl('レセプション', '相手サーブの1本目。◎＝そのままトスに入れた／×＝ミス。', recv) +
+    tbl('チャンスボール処理', '相手が返してきた球の処理。レセプションと見くらべる。', chance) +
+    setterHtml;
+}
+
 // ============ CSV エクスポート ============
 function exportRallyCSV() {
   const rallies = getAllRallies();
   const rows = [
-    ['set', 'rally_no', 'type', 'type_label', 'detail', 'player', 'zone', 'rotation', 'serving_side', 'server', 'score_us', 'score_them', 'timestamp']
+    ['set', 'rally_no', 'type', 'type_label', 'detail', 'player', 'zone', 'rotation', 'serving_side', 'server',
+     'first_ball_kind', 'first_ball_player', 'first_ball_rating', 'chance', 'setter',
+     'score_us', 'score_them', 'timestamp']
   ];
   rallies.forEach((r, i) => {
     rows.push([
       r.set, i+1, r.type, r.typeLabel, r.detail || '', r.player || '', r.zone || '',
       r.rotation, r.servingSide, r.server || '',
+      r.firstBall ? r.firstBall.kind : '',
+      r.firstBall ? (r.firstBall.player || '') : '',
+      (r.firstBall && r.firstBall.rating !== null && r.firstBall.rating !== undefined) ? r.firstBall.rating : '',
+      (r.chance && r.chance.length) ? r.chance.map(c => `${c.player}:${c.rating}`).join('|') : '',
+      r.setter || '',
       r.scoreUsAfter, r.scoreThemAfter,
       new Date(r.ts).toISOString()
     ]);
