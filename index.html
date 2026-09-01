@@ -1041,6 +1041,90 @@ input[type="number"] {
 .rate-btn:hover{background:var(--yellow);}
 .rating-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
 .rating-grid .rate-btn{font-size:26px;padding:16px 6px;width:100%;}
+
+/* ================= 横持ちレイアウト ================= */
+#recordLandscape{display:none;}
+@media (orientation:landscape) and (max-height:560px){
+  html,body{overflow:hidden;height:100%;}
+  #screen-record.active > .topbar,
+  #screen-record.active > div:not(#recordLandscape){display:none!important;}
+  #recordLandscape{display:grid;grid-template-rows:auto minmax(0,1fr);
+    position:fixed;inset:0;z-index:5;background:var(--paper);
+    padding:4px 5px 5px;gap:4px;box-sizing:border-box;overflow:hidden;}
+  .modal{max-height:94vh;overflow-y:auto;}
+  .modal-wide{max-width:min(96vw,860px);width:96vw;}
+  .modal h3{font-size:15px;margin-bottom:8px;}
+}
+/* 連打時の誤ズーム・選択・ハイライトを止める */
+#recordLandscape, #recordLandscape *{touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  user-select:none;-webkit-user-select:none;}
+
+.ls-top{display:flex;align-items:center;gap:10px;flex:0 0 auto;}
+.ls-score{display:flex;align-items:baseline;gap:6px;font-family:var(--font-mono,inherit);}
+.ls-score b{font-size:26px;font-weight:800;line-height:1;min-width:34px;text-align:center;
+  background:var(--black);color:var(--paper);padding:2px 7px;}
+.ls-score b:last-of-type{background:var(--red);}
+.ls-score i{font-style:normal;font-size:15px;opacity:.5;}
+.ls-meta{flex:1;font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.35;
+  color:var(--text-secondary);overflow:hidden;}
+.ls-meta b{color:var(--black);}
+.ls-top-btns{display:flex;gap:5px;flex:0 0 auto;}
+.ls-undo,.ls-menu{font-family:inherit;font-weight:800;border:2px solid var(--black);
+  background:var(--paper);cursor:pointer;padding:6px 12px;font-size:13px;}
+.ls-undo{background:var(--yellow);}
+.ls-menu{padding:6px 13px;font-size:16px;}
+
+.ls-main{display:grid;grid-template-columns:1fr 0.78fr 1fr;gap:5px;min-height:0;overflow:hidden;}
+.ls-col{display:grid;gap:4px;min-height:0;overflow:hidden;}
+.ls-center{display:grid;grid-template-rows:auto minmax(0,1fr);gap:4px;min-height:0;overflow:hidden;}
+.ls-btn{font-family:inherit;font-weight:800;border:2px solid var(--black);cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  padding:2px;line-height:1.15;min-height:0;text-align:center;}
+.ls-btn .t{font-size:clamp(12px,2.4vh,17px);}
+.ls-btn .s{font-size:9px;font-weight:600;opacity:.62;}
+.ls-btn:active{transform:translateY(1px);}
+.ls-btn.us{background:var(--blue);color:#fff;}
+.ls-btn.them{background:var(--red);color:#fff;}
+.ls-btn.err{background:var(--yellow);color:var(--black);}
+.ls-btn.ghost{background:var(--paper);color:var(--black);border-style:dashed;}
+.ls-btn.hot .t{font-size:clamp(15px,3.4vh,24px);}
+.ls-btn[disabled]{opacity:.35;pointer-events:none;}
+
+.ls-rot{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;}
+.ls-rot div{border:1px solid var(--black);background:var(--paper);text-align:center;
+  padding:2px 1px;font-size:10px;font-weight:700;line-height:1.25;overflow:hidden;}
+.ls-rot div b{display:block;font-size:8px;opacity:.55;font-weight:700;}
+.ls-rot div.srv{background:var(--yellow);}
+.ls-detail{min-height:0;overflow-y:auto;border:2px solid var(--black);
+  background:var(--paper);padding:4px 5px;font-size:11px;line-height:1.5;}
+.ls-detail .r{display:flex;align-items:center;gap:4px;justify-content:space-between;padding:1px 0;}
+.ls-detail .k{font-weight:700;font-size:10px;color:var(--text-secondary);}
+.ls-detail .v{font-weight:800;}
+.ls-detail .v.empty{color:var(--red);}
+.ls-detail button{font-family:inherit;font-weight:800;border:1.5px solid var(--black);
+  background:var(--paper);cursor:pointer;padding:2px 6px;font-size:11px;}
+.ls-detail .rt{font-size:14px;padding:1px 7px;}
+
+.ls-toast{position:fixed;left:50%;bottom:8px;transform:translateX(-50%) translateY(20px);
+  background:var(--black);color:var(--paper);padding:7px 16px;font-size:13px;font-weight:700;
+  opacity:0;pointer-events:none;transition:opacity .16s,transform .16s;z-index:900;white-space:nowrap;}
+.ls-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* 選手＋ゾーン 同時選択 */
+.hz-wrap{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media (max-width:560px){.hz-wrap{grid-template-columns:1fr;}}
+.hz-lab{font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--text-secondary);margin-bottom:5px;}
+.hz-lab span{color:var(--blue);font-size:13px;}
+.hz-players{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;}
+.hz-players button{font-family:inherit;font-weight:800;font-size:14px;border:2px solid var(--black);
+  background:var(--paper);cursor:pointer;padding:10px 2px;}
+.hz-players button.sel{background:var(--blue);color:#fff;}
+.hz-net{text-align:center;font-size:9px;font-weight:800;letter-spacing:.3em;
+  background:var(--black);color:var(--paper);padding:3px 0;margin-top:4px;}
+.hz-zones{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;}
+.hz-zones button{font-family:inherit;font-weight:800;font-size:15px;border:2px solid var(--black);
+  background:var(--paper);cursor:pointer;padding:11px 2px;}
+.hz-zones button:active{background:var(--yellow);}
 </style>
 </head>
 <body>
@@ -1257,6 +1341,27 @@ input[type="number"] {
       <div class="log-list" id="logList"></div>
     </div>
   </div>
+
+  <!-- ============ 横持ち専用パネル ============ -->
+  <div id="recordLandscape">
+    <div class="ls-top">
+      <div class="ls-score"><b id="lsScoreUs">0</b><i>-</i><b id="lsScoreThem">0</b></div>
+      <div class="ls-meta"><span id="lsMeta"></span></div>
+      <div class="ls-top-btns">
+        <button class="ls-undo" onclick="undoLast()">↶ 戻す</button>
+        <button class="ls-menu" onclick="openLsMenu()">⋯</button>
+      </div>
+    </div>
+    <div class="ls-main">
+      <div class="ls-col" id="lsColA"></div>
+      <div class="ls-center">
+        <div class="ls-rot" id="lsRot"></div>
+        <div class="ls-detail" id="lsDetail"></div>
+      </div>
+      <div class="ls-col" id="lsColB"></div>
+    </div>
+    <div class="ls-toast" id="lsToast"></div>
+  </div>
 </div>
 
 <!-- ============ 選手選択モーダル ============ -->
@@ -1297,6 +1402,51 @@ input[type="number"] {
     </p>
     <div class="rating-grid" id="modalRatingGrid"></div>
     <button class="btn secondary large" style="margin-top:14px;" onclick="closeModal('modal-rating')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ============ その他ミス(横持ち) ============ -->
+<div class="modal-overlay" id="modal-other">
+  <div class="modal">
+    <h3>その他の記録</h3>
+    <div class="player-grid" id="modalOtherGrid" style="grid-template-columns:1fr 1fr 1fr;"></div>
+    <button class="btn secondary large" style="margin-top:12px;" onclick="closeModal('modal-other')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ============ 選手＋ゾーン 同時選択(横持ち) ============ -->
+<div class="modal-overlay" id="modal-hitzone">
+  <div class="modal modal-wide">
+    <h3 id="hzTitle">スパイク決定</h3>
+    <div class="hz-wrap">
+      <div class="hz-side">
+        <div class="hz-lab">誰が <span id="hzPlayerPick">—</span></div>
+        <div class="hz-players" id="hzPlayers"></div>
+      </div>
+      <div class="hz-side">
+        <div class="hz-lab">どこに落ちた <span style="color:var(--text-tertiary);font-size:9px;">上=エンドライン</span></div>
+        <div class="hz-zones" id="hzZones"></div>
+        <div class="hz-net">N E T</div>
+      </div>
+    </div>
+    <button class="btn secondary large" style="margin-top:10px;" onclick="closeModal('modal-hitzone')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ============ 横持ちメニュー ============ -->
+<div class="modal-overlay" id="modal-lsmenu">
+  <div class="modal">
+    <h3>メニュー</h3>
+    <div class="player-grid" style="grid-template-columns:1fr 1fr;">
+      <button class="player-btn" onclick="closeModal('modal-lsmenu');showStats()">集計</button>
+      <button class="player-btn" onclick="closeModal('modal-lsmenu');openLiberoModal()">リベロ</button>
+      <button class="player-btn" onclick="closeModal('modal-lsmenu');openAdjustModal()">調整</button>
+      <button class="player-btn" onclick="closeModal('modal-lsmenu');toggleSwapSides()">左右入れ替え</button>
+      <button class="player-btn" onclick="closeModal('modal-lsmenu');recordTimeout()">タイム</button>
+      <button class="player-btn" onclick="closeModal('modal-lsmenu');endSetConfirm()">セット終了</button>
+      <button class="player-btn" onclick="closeModal('modal-lsmenu');pauseMatch()">一時停止</button>
+    </div>
+    <button class="btn secondary large" style="margin-top:12px;" onclick="closeModal('modal-lsmenu')">閉じる</button>
   </div>
 </div>
 
@@ -1505,6 +1655,7 @@ let state = {
   rotationIndex: 0,     // P1がスタメンのどの位置から始まったか(自チームのみ)
   detailMode: false,    // 詳細記録モード(ミス・反則の種別を記録)
   defaultSetter: null,  // 既定セッターの playerIndex。詳細モードでスパイクに自動付与
+  swapSides: false,     // 横持ちレイアウトの左右入れ替え(利き手に合わせる)
 };
 
 // ---- 詳細モード: このラリー分の一時保持（点が入ったときにレコードへ合流） ----
@@ -1923,6 +2074,7 @@ function goSetup() {
     rotationIndex: 0,
     detailMode: false,
     defaultSetter: null,
+    swapSides: false,
     finished: false,
     currentSetStartServe: null,
   };
@@ -2433,6 +2585,11 @@ let pendingRecord = null; // { type, player, zone }
 function recordPoint(type) {
   const pt = POINT_TYPES[type];
   pendingRecord = { type, player: null, zone: null, detail: null };
+  buzz();
+  if (isLandscapeMode() && pt.needPlayer && pt.needZone) {
+    openHitZoneModal(type);
+    return;
+  }
   if (pt.needPlayer) {
     openPlayerModal(type);
   } else if (pt.needZone) {
@@ -2485,6 +2642,185 @@ function openPlayerModal(type) {
 
   document.getElementById('modal-player').classList.add('active');
 }
+
+// ============ 横持ちレイアウト ============
+// 縦持ちのDOMには触れず、専用パネルを別に描画する
+function isLandscapeMode(){
+  return window.matchMedia('(orientation:landscape) and (max-height:560px)').matches;
+}
+
+// 左＝得点 / 右＝失点。R8戦の実測頻度（相手ミス35・ディグミス23・スパイク決定25…）で大きさを決める
+const LS_SCORE_BTNS = [
+  { type:'them_err',      t:'相手ミス',       s:'タップのみ', cls:'us',    hot:true, span:2, rspan:2 },
+  { type:'us_kill',       t:'スパイク決定',   s:'選手+ゾーン', cls:'us' },
+  { type:'us_ace',        t:'エース',         s:'ゾーン',     cls:'us' },
+  { type:'us_block',      t:'ブロック決定',   s:'選手',       cls:'us' },
+  { type:'spike_attempt', t:'継続',           s:'選手・点なし', cls:'ghost' },
+];
+const LS_LOSE_BTNS = [
+  { type:'us_dig_err',    t:'ディグミス',     s:'選手',       cls:'err',   hot:true, span:2 },
+  { type:'us_spike_err',  t:'スパイクミス',   s:'選手',       cls:'err' },
+  { type:'us_recv_err',   t:'レシーブミス',   s:'選手',       cls:'err' },
+  { type:'them_kill',     t:'被スパイク',     s:'ゾーン',     cls:'them' },
+  { type:'them_ace',      t:'被エース',       s:'ゾーン',     cls:'them' },
+  { type:'__other',       t:'その他 ▸',       s:'6種＋反則',  cls:'ghost', span:2 },
+];
+// 頻度の低いものは1階層下へ
+const LS_OTHER_BTNS = ['us_serve_err','us_cover_err','us_toss_err','us_return_err','us_other_err','us_violation'];
+
+function lsBtnHtml(b){
+  const disabled = (b.type === 'us_ace' || b.type === 'us_serve_err') && state.serving !== 'us';
+  const onclick = b.type === '__other' ? 'openOtherModal()' : `recordPoint('${b.type}')`;
+  return `<button class="ls-btn ${b.cls}${b.hot?' hot':''}" ${disabled?'disabled':''}
+    style="grid-column:span ${b.span||1};grid-row:span ${b.rspan||1};" onclick="${onclick}">
+    <span class="t">${escapeHtml(b.t)}</span><span class="s">${escapeHtml(b.s)}</span></button>`;
+}
+
+function renderLandscape(){
+  const root = document.getElementById('recordLandscape');
+  if (!root || !isLandscapeMode()) return;
+
+  document.getElementById('lsScoreUs').textContent = state.scoreUs;
+  document.getElementById('lsScoreThem').textContent = state.scoreThem;
+  const srvIdx = state.startingLineup[(0 + state.rotationIndex) % 6];
+  const srvName = srvIdx !== null ? state.players[srvIdx].name : '-';
+  document.getElementById('lsMeta').innerHTML =
+    `${state.opponent ? 'vs ' + escapeHtml(state.opponent) + ' · ' : ''}SET ${state.currentSet} · R${state.rotationIndex + 1}<br>` +
+    `SERVE <b>${state.serving === 'us' ? escapeHtml(srvName) : '相手'}</b>`;
+
+  // 左右の割り当て（設定で入れ替え可）
+  const A = state.swapSides ? LS_LOSE_BTNS : LS_SCORE_BTNS;
+  const B = state.swapSides ? LS_SCORE_BTNS : LS_LOSE_BTNS;
+  // 占有セル数から必要な行数を出す（2列固定）
+  const rowsOf = list => Math.ceil(list.reduce((n,b) => n + (b.span||1) * (b.rspan||1), 0) / 2);
+  const colStyle = n => `grid-template-columns:1fr 1fr;grid-template-rows:repeat(${n},minmax(0,1fr));`;
+  const colA = document.getElementById('lsColA');
+  const colB = document.getElementById('lsColB');
+  colA.setAttribute('style', colStyle(rowsOf(A)));
+  colB.setAttribute('style', colStyle(rowsOf(B)));
+  colA.innerHTML = A.map(lsBtnHtml).join('');
+  colB.innerHTML = B.map(lsBtnHtml).join('');
+
+  // ローテ（前衛上段 P4 P3 P2 / 後衛下段 P5 P6 P1）
+  document.getElementById('lsRot').innerHTML = [4,3,2,5,6,1].map(pos => {
+    const idx = state.startingLineup[(pos - 1 + state.rotationIndex) % 6];
+    const p = idx !== null ? state.players[idx] : null;
+    return `<div class="${pos===1?'srv':''}"><b>P${pos}${pos===1?'★':''}</b>${escapeHtml(p ? (p.short || p.name) : '-')}</div>`;
+  }).join('');
+
+  renderLsDetail();
+}
+
+function renderLsDetail(){
+  const el = document.getElementById('lsDetail');
+  if (!el) return;
+  if (!state.detailMode){
+    el.innerHTML = '<div style="font-size:10px;color:var(--text-tertiary);line-height:1.6;">' +
+      '詳細モードOFF<br>1本目の評価・チャンスボール・セッターは記録しません。</div>';
+    return;
+  }
+  const isOurServe = state.serving === 'us';
+  let first;
+  if (pendingFirstBall){
+    first = `<span class="v">${escapeHtml(pendingFirstBall.player || '-')} ${ratingMark(pendingFirstBall.rating)}</span>` +
+            `<button onclick="clearFirstBall()">やり直す</button>`;
+  } else if (isOurServe){
+    first = '<span></span>' + [3,2,1,0].map(v =>
+      `<button class="rt" onclick="setServeRating(${v})">${RATING_MARKS[v]}</button>`).join('');
+  } else {
+    first = '<span class="v empty">未入力</span><button onclick="inputReception()">入力</button>';
+  }
+  const sname = currentSetterName();
+  el.innerHTML =
+    `<div class="r"><span class="k">${isOurServe ? '1本目 サーブ' : '1本目 レセプ'}</span></div>
+     <div class="r">${first}</div>
+     <div class="r"><span class="k">チャンス</span>
+       <span class="v" style="font-size:10px;">${pendingChance.length ? escapeHtml(pendingChance.map(c=>c.player+ratingMark(c.rating)).join('、')) : 'なし'}</span>
+       <button onclick="addChanceBall()">＋</button></div>
+     <div class="r"><span class="k">セッター</span>
+       <span class="v ${sname?'':'empty'}" style="font-size:11px;">${escapeHtml(sname || '未設定')}</span>
+       <button onclick="overrideSetter()">変更</button></div>`;
+}
+
+function openOtherModal(){
+  const grid = document.getElementById('modalOtherGrid');
+  grid.innerHTML = LS_OTHER_BTNS.map(t => {
+    const pt = POINT_TYPES[t];
+    const dis = (t === 'us_serve_err' && state.serving !== 'us') ? 'disabled style="opacity:.35;"' : '';
+    return `<button class="player-btn" ${dis} onclick="closeModal('modal-other');recordPoint('${t}')">${escapeHtml(pt.label)}</button>`;
+  }).join('') +
+  `<button class="player-btn" onclick="closeModal('modal-other');recordTimeout()">タイム</button>`;
+  document.getElementById('modal-other').classList.add('active');
+}
+
+function openLsMenu(){ document.getElementById('modal-lsmenu').classList.add('active'); }
+
+function toggleSwapSides(){
+  state.swapSides = !state.swapSides;
+  saveMatch();
+  renderLandscape();
+  showToast(state.swapSides ? '左右を入れ替えました（左＝失点）' : '左右を戻しました（左＝得点）');
+}
+
+// ---- スパイク決定: 選手とゾーンを1画面で ----
+let hzPlayer = null;
+function openHitZoneModal(type){
+  hzPlayer = null;
+  const pt = POINT_TYPES[type];
+  document.getElementById('hzTitle').textContent = pt.label;
+  document.getElementById('hzPlayerPick').textContent = '—';
+  const cands = state.startingLineup.filter(x => x !== null).map(i => ({...state.players[i], idx:i}));
+  document.getElementById('hzPlayers').innerHTML = cands.map(p =>
+    `<button onclick="hzPickPlayer('${escapeAttr(p.name)}',this)">${escapeHtml(p.short || p.name)}</button>`).join('');
+  // 縦持ちと同じ並びを使う（上=エンドライン / 下=ネット）
+  document.getElementById('hzZones').innerHTML =
+    zoneLayoutFor(pt.zoneCourt).flat().map(z => `<button onclick="hzPickZone(${z})">${z}</button>`).join('');
+  document.getElementById('modal-hitzone').classList.add('active');
+}
+function hzPickPlayer(name, btn){
+  hzPlayer = name;
+  document.getElementById('hzPlayerPick').textContent = name;
+  [...document.querySelectorAll('#hzPlayers button')].forEach(b => b.classList.remove('sel'));
+  if (btn) btn.classList.add('sel');
+}
+function hzPickZone(z){
+  if (!hzPlayer){ showToast('先に選手を選んでください'); return; }
+  pendingRecord.player = hzPlayer;
+  pendingRecord.zone = z;
+  closeModal('modal-hitzone');
+  proceedToDetailOrFinalize();
+}
+
+// ---- トースト（連打時の誤タップに気づけるように） ----
+let toastTimer = null;
+function showToast(msg){
+  const el = document.getElementById('lsToast');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2000);
+}
+function buzz(){ try { if (navigator.vibrate) navigator.vibrate(10); } catch(e){} }
+
+// ---- 記録中のスリープ防止 ----
+let wakeLock = null;
+async function requestWakeLock(){
+  try {
+    if ('wakeLock' in navigator && !wakeLock) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    }
+  } catch(e){ /* 非対応・拒否は無視 */ }
+}
+function releaseWakeLock(){ try { if (wakeLock) { wakeLock.release(); wakeLock = null; } } catch(e){} }
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' &&
+      document.getElementById('screen-record') &&
+      document.getElementById('screen-record').classList.contains('active')) requestWakeLock();
+});
+window.addEventListener('orientationchange', () => setTimeout(renderRecord, 250));
+window.addEventListener('resize', () => { if (document.getElementById('screen-record').classList.contains('active')) renderLandscape(); });
 
 // ============ 詳細モード: 1本目・チャンスボール・セッター ============
 let genericPlayerCb = null;
@@ -2567,6 +2903,7 @@ function overrideSetter(){
 function resetSetterOverride(){ pendingSetterOverride = null; renderDetailBar(); }
 
 function renderDetailBar(){
+  renderLsDetail();
   const bar = document.getElementById('detailBar');
   if (!bar) return;
   if (!state.detailMode) { bar.style.display = 'none'; return; }
@@ -2618,6 +2955,14 @@ function selectPlayer(name) {
   }
 }
 
+// ゾーンの並びは縦持ち・横持ちで必ず同じものを使う（ずれるとヒートマップが壊れる）
+// どちらのコートも「上=エンドライン / 下=ネット」に統一
+function zoneLayoutFor(court) {
+  return court === 'us'
+    ? [[5, 6, 1], [7, 8, 9], [4, 3, 2]]   // 自コート
+    : [[1, 6, 5], [9, 8, 7], [2, 3, 4]];  // 相手コート(左右反転)
+}
+
 function openZoneModal(type) {
   const pt = POINT_TYPES[type];
   document.getElementById('modalZoneTitle').textContent = `${pt.label} - 落下ゾーン`;
@@ -2626,26 +2971,9 @@ function openZoneModal(type) {
   // どちらのコートも「ネット=下、エンドライン=上」に統一
   // ボールが手前(ネット)から飛んできて、コートのどこに落ちるか、という視覚化
   let zones, topHTML, bottomHTML;
-  if (pt.zoneCourt === 'us') {
-    // 自コート: 上から エンドライン → 中間 → ネット
-    zones = [
-      [5, 6, 1],  // 自エンド側 (画面上)
-      [7, 8, 9],  // 中間
-      [4, 3, 2]   // ネット際 (画面下)
-    ];
-    topHTML = '<p class="zone-label">ENDLINE</p>';
-    bottomHTML = '<div class="net-visual"></div>';
-  } else {
-    // 相手コート: 上から エンドライン(相手) → 中間 → ネット
-    // 相手視点のゾーン番号を、自分視点の左右で配置 = 左右反転
-    zones = [
-      [1, 6, 5],  // 相手エンド側 (画面上)
-      [9, 8, 7],  // 中間
-      [2, 3, 4]   // ネット際 (画面下)
-    ];
-    topHTML = '<p class="zone-label">ENDLINE</p>';
-    bottomHTML = '<div class="net-visual"></div>';
-  }
+  zones = zoneLayoutFor(pt.zoneCourt);
+  topHTML = '<p class="zone-label">ENDLINE</p>';
+  bottomHTML = '<div class="net-visual"></div>';
 
   document.getElementById('zoneTopArea').innerHTML = topHTML;
   document.getElementById('zoneBottomArea').innerHTML = bottomHTML;
@@ -2756,6 +3084,7 @@ function finalizePoint() {
   }
 
   state.currentRallies.push(rally);
+  showToast(`${pt.label}${rally.player ? ' ' + rally.player : ''}${rally.zone ? ' Z' + rally.zone : ''} — ↶で取消`);
   // ラリーが終わったら一時保持をクリア（'none'＝継続記録では持ち越す）
   if (pt.side !== 'none') clearPendingDetail();
   saveMatch();
@@ -2890,6 +3219,8 @@ function renderRecord() {
   }
   document.getElementById('rotationNum').textContent = state.rotationIndex + 1;
   renderDetailBar();
+  renderLandscape();
+  requestWakeLock();
 
   // ローテ表示
   // 現在のローテの各ポジションに誰がいるかを表示
