@@ -1044,7 +1044,7 @@ input[type="number"] {
 
 /* ================= 横持ちレイアウト ================= */
 #recordLandscape{display:none;}
-@media (orientation:landscape) and (max-height:560px){
+@media (orientation:landscape) and (min-width:640px) and (pointer:coarse){
   html,body{overflow:hidden;height:100%;}
   #screen-record.active > .topbar,
   #screen-record.active > div:not(#recordLandscape){display:none!important;}
@@ -1074,7 +1074,25 @@ input[type="number"] {
 .ls-undo{background:var(--yellow);}
 .ls-menu{padding:6px 13px;font-size:16px;}
 
-.ls-main{display:grid;grid-template-columns:1fr 0.78fr 1fr;gap:5px;min-height:0;overflow:hidden;}
+.ls-main{display:grid;grid-template-columns:1fr 0.9fr 1fr;gap:5px;min-height:0;overflow:hidden;}
+/* 画面が大きいほど中央（親指が届かない帯）を広げ、ボタンを外側に寄せる */
+@media (orientation:landscape) and (min-height:561px) and (pointer:coarse){
+  .ls-main{grid-template-columns:1fr 1.35fr 1fr;gap:10px;}
+  #recordLandscape{padding:8px 10px 10px;gap:8px;}
+  .ls-col{gap:8px;}
+  .ls-btn .t{font-size:clamp(15px,2.6vh,26px);}
+  .ls-btn .s{font-size:12px;}
+  .ls-btn.hot .t{font-size:clamp(20px,3.6vh,34px);}
+  .ls-score b{font-size:34px;padding:3px 11px;}
+  .ls-meta{font-size:14px;}
+  .ls-undo,.ls-menu{font-size:16px;padding:9px 18px;}
+  .ls-rot div{font-size:14px;padding:5px 2px;}
+  .ls-rot div b{font-size:10px;}
+  .ls-detail{font-size:14px;}
+}
+@media (orientation:landscape) and (min-height:900px) and (pointer:coarse){
+  .ls-main{grid-template-columns:1fr 1.9fr 1fr;}
+}
 .ls-col{display:grid;gap:4px;min-height:0;overflow:hidden;}
 .ls-center{display:grid;grid-template-rows:auto minmax(0,1fr);gap:4px;min-height:0;overflow:hidden;}
 .ls-btn{font-family:inherit;font-weight:800;border:2px solid var(--black);cursor:pointer;
@@ -1105,6 +1123,23 @@ input[type="number"] {
   background:var(--paper);cursor:pointer;padding:2px 6px;font-size:11px;}
 .ls-detail .rt{font-size:14px;padding:1px 7px;}
 
+.ls-rate{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;height:100%;}
+.ls-rate button{font-family:inherit;font-weight:800;border:2px solid var(--black);
+  background:var(--paper);cursor:pointer;font-size:clamp(17px,3.6vh,30px);line-height:1;padding:0;}
+.ls-rate button:active{background:var(--yellow);}
+.ls-strip{display:flex;align-items:center;gap:4px;height:100%;border:2px solid var(--black);
+  background:var(--paper);padding:0 6px;overflow:hidden;}
+.ls-strip .lab{font-size:10px;font-weight:800;color:var(--text-secondary);flex:0 0 auto;}
+.ls-strip .cur{font-size:clamp(11px,2vh,15px);font-weight:800;flex:1;overflow:hidden;
+  white-space:nowrap;text-overflow:ellipsis;}
+.ls-strip .cur.empty{color:var(--red);}
+.ls-strip button{font-family:inherit;font-weight:800;border:2px solid var(--black);
+  background:var(--yellow);cursor:pointer;padding:5px 12px;font-size:clamp(12px,2.2vh,16px);
+  flex:0 0 auto;align-self:stretch;margin:4px 0;min-width:56px;}
+@media (orientation:landscape) and (min-height:561px) and (pointer:coarse){
+  .ls-strip .lab{font-size:13px;} .ls-strip button{padding:9px 22px;min-width:80px;}
+  .ls-rate{gap:8px;}
+}
 .ls-toast{position:fixed;left:50%;bottom:8px;transform:translateX(-50%) translateY(20px);
   background:var(--black);color:var(--paper);padding:7px 16px;font-size:13px;font-weight:700;
   opacity:0;pointer-events:none;transition:opacity .16s,transform .16s;z-index:900;white-space:nowrap;}
@@ -1442,6 +1477,7 @@ input[type="number"] {
       <button class="player-btn" onclick="closeModal('modal-lsmenu');openLiberoModal()">リベロ</button>
       <button class="player-btn" onclick="closeModal('modal-lsmenu');openAdjustModal()">調整</button>
       <button class="player-btn" onclick="closeModal('modal-lsmenu');toggleSwapSides()">左右入れ替え</button>
+      <button class="player-btn" onclick="closeModal('modal-lsmenu');overrideSetter()">セッター変更</button>
       <button class="player-btn" onclick="closeModal('modal-lsmenu');recordTimeout()">タイム</button>
       <button class="player-btn" onclick="closeModal('modal-lsmenu');endSetConfirm()">セット終了</button>
       <button class="player-btn" onclick="closeModal('modal-lsmenu');pauseMatch()">一時停止</button>
@@ -2645,8 +2681,10 @@ function openPlayerModal(type) {
 
 // ============ 横持ちレイアウト ============
 // 縦持ちのDOMには触れず、専用パネルを別に描画する
+// ★CSSの @media と必ず同じ条件にすること（ずれると横持ちで何も描画されない）
+const LS_MEDIA = '(orientation:landscape) and (min-width:640px) and (pointer:coarse)';
 function isLandscapeMode(){
-  return window.matchMedia('(orientation:landscape) and (max-height:560px)').matches;
+  return window.matchMedia(LS_MEDIA).matches;
 }
 
 // 左＝得点 / 右＝失点。R8戦の実測頻度（相手ミス35・ディグミス23・スパイク決定25…）で大きさを決める
@@ -2696,10 +2734,15 @@ function renderLandscape(){
   const colStyle = n => `grid-template-columns:1fr 1fr;grid-template-rows:repeat(${n},minmax(0,1fr));`;
   const colA = document.getElementById('lsColA');
   const colB = document.getElementById('lsColB');
-  colA.setAttribute('style', colStyle(rowsOf(A)));
-  colB.setAttribute('style', colStyle(rowsOf(B)));
-  colA.innerHTML = A.map(lsBtnHtml).join('');
-  colB.innerHTML = B.map(lsBtnHtml).join('');
+  // 詳細モードでは、1本目の評価とチャンスボールを親指の届く列の最下段に置く
+  // （1本目は1ラリーに必ず1回＝記録ボタンより頻度が高い。中央には置かない）
+  const extra = state.detailMode ? 1 : 0;
+  colA.setAttribute('style', colStyle(rowsOf(A) + extra));
+  colB.setAttribute('style', colStyle(rowsOf(B) + extra));
+  colA.innerHTML = A.map(lsBtnHtml).join('') +
+    (extra ? '<div id="lsStripA" style="grid-column:span 2;display:grid;min-height:0;"></div>' : '');
+  colB.innerHTML = B.map(lsBtnHtml).join('') +
+    (extra ? '<div id="lsStripB" style="grid-column:span 2;display:grid;min-height:0;"></div>' : '');
 
   // ローテ（前衛上段 P4 P3 P2 / 後衛下段 P5 P6 P1）
   document.getElementById('lsRot').innerHTML = [4,3,2,5,6,1].map(pos => {
@@ -2711,7 +2754,38 @@ function renderLandscape(){
   renderLsDetail();
 }
 
+function lsFirstBallHtml(){
+  if (pendingFirstBall){
+    return `<div class="ls-strip"><span class="lab">1本目</span>` +
+      `<span class="cur">${escapeHtml(pendingFirstBall.player || '-')} ${ratingMark(pendingFirstBall.rating)}</span>` +
+      `<button onclick="clearFirstBall()">やり直す</button></div>`;
+  }
+  if (state.serving === 'us'){
+    // サーバーは自動で分かるので、評価4つを直接置く（1タップ）
+    return '<div class="ls-rate">' +
+      [3,2,1,0].map(v => `<button onclick="setServeRating(${v})">${RATING_MARKS[v]}</button>`).join('') +
+      '</div>';
+  }
+  return `<div class="ls-strip"><span class="lab">1本目 レセプ</span>` +
+    `<span class="cur empty">未入力</span><button onclick="inputReception()">入力</button></div>`;
+}
+
+function lsChanceHtml(){
+  const txt = pendingChance.length
+    ? pendingChance.map(c => c.player + ratingMark(c.rating)).join('、') : 'なし';
+  return `<div class="ls-strip"><span class="lab">チャンス</span>` +
+    `<span class="cur">${escapeHtml(txt)}</span>` +
+    `<button onclick="addChanceBall()">＋</button>` +
+    (pendingChance.length ? `<button onclick="clearChanceBalls()">消</button>` : '') + `</div>`;
+}
+
 function renderLsDetail(){
+  const a = document.getElementById('lsStripA');
+  const b = document.getElementById('lsStripB');
+  if (a) a.innerHTML = lsFirstBallHtml();
+  if (b) b.innerHTML = lsChanceHtml();
+
+  // 中央は読み取り専用（親指が届かない帯にはボタンを置かない）
   const el = document.getElementById('lsDetail');
   if (!el) return;
   if (!state.detailMode){
@@ -2719,27 +2793,18 @@ function renderLsDetail(){
       '詳細モードOFF<br>1本目の評価・チャンスボール・セッターは記録しません。</div>';
     return;
   }
-  const isOurServe = state.serving === 'us';
-  let first;
-  if (pendingFirstBall){
-    first = `<span class="v">${escapeHtml(pendingFirstBall.player || '-')} ${ratingMark(pendingFirstBall.rating)}</span>` +
-            `<button onclick="clearFirstBall()">やり直す</button>`;
-  } else if (isOurServe){
-    first = '<span></span>' + [3,2,1,0].map(v =>
-      `<button class="rt" onclick="setServeRating(${v})">${RATING_MARKS[v]}</button>`).join('');
-  } else {
-    first = '<span class="v empty">未入力</span><button onclick="inputReception()">入力</button>';
-  }
   const sname = currentSetterName();
+  const fb = pendingFirstBall
+    ? `${escapeHtml(pendingFirstBall.player || '-')} ${ratingMark(pendingFirstBall.rating)}`
+    : '<span style="color:var(--red);">未入力</span>';
   el.innerHTML =
-    `<div class="r"><span class="k">${isOurServe ? '1本目 サーブ' : '1本目 レセプ'}</span></div>
-     <div class="r">${first}</div>
-     <div class="r"><span class="k">チャンス</span>
-       <span class="v" style="font-size:10px;">${pendingChance.length ? escapeHtml(pendingChance.map(c=>c.player+ratingMark(c.rating)).join('、')) : 'なし'}</span>
-       <button onclick="addChanceBall()">＋</button></div>
-     <div class="r"><span class="k">セッター</span>
-       <span class="v ${sname?'':'empty'}" style="font-size:11px;">${escapeHtml(sname || '未設定')}</span>
-       <button onclick="overrideSetter()">変更</button></div>`;
+    `<div class="r"><span class="k">1本目</span><span class="v">${fb}</span></div>
+     <div class="r"><span class="k">チャンス</span><span class="v" style="font-size:11px;">${
+       pendingChance.length ? escapeHtml(pendingChance.map(c=>c.player+ratingMark(c.rating)).join('、')) : 'なし'}</span></div>
+     <div class="r"><span class="k">セッター</span><span class="v ${sname?'':'empty'}" style="font-size:11px;">${
+       escapeHtml(sname || '未設定')}${pendingSetterOverride ? '（今回のみ）' : ''}</span></div>
+     <div style="font-size:9px;color:var(--text-tertiary);margin-top:3px;line-height:1.4;">
+       セッターの変更は ⋯ メニューから</div>`;
 }
 
 function openOtherModal(){
