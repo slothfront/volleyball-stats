@@ -584,8 +584,11 @@ input[type="number"] {
   position: fixed; inset: 0;
   background: rgba(26, 26, 26, 0.4);
   z-index: 200;
-  align-items: center; justify-content: center;
+  align-items: flex-start; justify-content: center;
   padding: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .modal-overlay.active { display: flex; }
 
@@ -597,6 +600,8 @@ input[type="number"] {
   width: 100%;
   max-width: 520px;
   max-height: 90vh;
+  max-height: 90dvh;   /* iOS Safari: ツールバーを除いた実際の高さ。vhだと下が切れる */
+  margin: auto;        /* 収まるときは中央、収まらないときは上から（切れずにスクロールできる） */
   overflow-y: auto;
   box-shadow: 12px 12px 0 var(--red);
 }
@@ -1051,7 +1056,7 @@ input[type="number"] {
   #recordLandscape{display:grid;grid-template-rows:auto minmax(0,1fr);
     position:fixed;inset:0;z-index:5;background:var(--paper);
     padding:4px 5px 5px;gap:4px;box-sizing:border-box;overflow:hidden;}
-  .modal{max-height:94vh;overflow-y:auto;}
+  .modal{max-height:94vh;max-height:94dvh;overflow-y:auto;}
   .modal-wide{max-width:min(96vw,860px);width:96vw;}
   .modal h3{font-size:15px;margin-bottom:8px;}
 }
@@ -1168,7 +1173,7 @@ input[type="number"] {
 .ct-step{font-size:12px;font-weight:800;color:var(--red);}
 .ct-flip{display:none;font-family:inherit;font-weight:800;border:2px solid var(--black);background:var(--paper);padding:4px 10px;cursor:pointer;font-size:13px;}
 .ct-svgwrap{background:var(--paper);border:3px solid var(--black);min-height:0;flex:0 0 auto;display:flex;justify-content:center;}
-.ct-svgwrap svg{display:block;width:100%;height:min(46vh,520px);touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;}
+.ct-svgwrap svg{display:block;width:100%;height:min(46vh,520px);height:min(46dvh,520px);touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;}
 .ct-panel{display:flex;flex-direction:column;gap:6px;}
 .ct-row{display:flex;flex-wrap:wrap;gap:5px;align-items:center;}
 .ct-lab{font-size:11px;font-weight:800;color:var(--text-secondary);flex:0 0 auto;min-width:64px;}
@@ -1208,7 +1213,8 @@ input[type="number"] {
 .chk-row input{width:22px;height:22px;accent-color:var(--blue);flex:0 0 auto;margin-top:1px;}
 .server-ask{color:var(--red);text-decoration:underline;cursor:pointer;}
 @media (orientation:landscape) and (min-width:640px) and (pointer:coarse){
-  .modal-court{max-width:98vw;width:98vw;height:97vh;max-height:97vh;padding:6px 8px;gap:4px;overflow:hidden;}
+  .modal-overlay:has(.modal-court){padding:5px;}
+  .modal-court{max-width:none;width:100%;height:calc(100vh - 10px);height:calc(100dvh - 10px);max-height:none;padding:6px 8px;gap:4px;overflow:hidden;}
   .modal-court .ct-svgwrap{flex:1 1 auto;min-height:0;}
   .modal-court .ct-panel{flex:0 0 auto;flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px 14px;}
   .modal-court .ct-actions{margin-left:auto;flex:0 0 auto;gap:8px;}
