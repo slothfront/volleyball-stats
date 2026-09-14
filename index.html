@@ -1345,7 +1345,7 @@ input[type="number"] {
 
   <div class="card">
     <h2>ROSTER</h2>
-    <p style="font-size:12px;color:var(--text-tertiary);margin:0 0 8px;">出場予定の選手にチェック。背番号は任意。L=リベロ。</p>
+    <p style="font-size:12px;color:var(--text-tertiary);margin:0 0 8px;">出場予定の選手にチェック。背番号は任意。L=リベロ。助=助っ人（見分けがつかない日は集計で「助っ人」1行に合算される）。</p>
     <div id="playerList"></div>
     <div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;">
       <button class="btn outline small" onclick="addPlayerRow()">+ 選手を追加</button>
@@ -2014,6 +2014,11 @@ const DETAIL_OPTIONS = {
 };
 
 const POSITION_LABELS = ['P1(右後/サーブ)', 'P2(右前)', 'P3(中央前)', 'P4(左前)', 'P5(左後)', 'P6(中央後)'];
+
+// 集計上の名前: 助っ人（guest）は「助っ人」1行に合算（見分けがついていない前提）
+const GUEST_LABEL = '助っ人';
+function guestNames(){ return state.players.filter(p => p.guest && p.name).map(p => p.name); }
+function statName(name){ return guestNames().includes(name) ? GUEST_LABEL : name; }
 
 // 選手の並びは常に背番号順（番号なしは最後・同番号は名前順）
 function numKey(p){ const n = parseInt(p && p.number, 10); return isNaN(n) ? Infinity : n; }
@@ -2693,7 +2698,8 @@ function saveRoster() {
       number: p.number || '',
       name: p.name,
       short: p.short || p.name,
-      libero: !!p.libero
+      libero: !!p.libero,
+        guest: !!p.guest
     }));
   if (roster.length === 0) {
     alert('保存する選手がいません。先に名前を入力してください。');
@@ -2721,7 +2727,8 @@ function loadSavedRoster() {
       name: p.name || '',
       short: p.short || p.name || '',
       active: true,
-      libero: !!p.libero
+      libero: !!p.libero,
+        guest: !!p.guest
     }));
     renderPlayerList();
     renderStartingLineup();
@@ -2754,7 +2761,8 @@ function renderSetup() {
         name: p.name || '',
         short: p.short || p.name || '',
         active: true,
-        libero: !!p.libero
+        libero: !!p.libero,
+        guest: !!p.guest
       }));
     } else {
       state.players = JSON.parse(JSON.stringify(DEFAULT_PLAYERS));
@@ -2788,6 +2796,10 @@ function renderPlayerList() {
       <label style="display:flex;align-items:center;gap:4px;font-size:13px;margin:0;">
         <input type="checkbox" ${p.libero ? 'checked' : ''} onchange="updatePlayer(${i}, 'libero', this.checked)">
         L
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;font-size:13px;margin:0;" title="助っ人。集計では「助っ人」1行に合算">
+        <input type="checkbox" ${p.guest ? 'checked' : ''} onchange="updatePlayer(${i}, 'guest', this.checked)">
+        助
       </label>
       <button class="btn small danger" onclick="removePlayer(${i})">×</button>
     </div>
@@ -3140,7 +3152,7 @@ function renderLsPlayers(){
   const lab = ask ? `誰が？<br>${escapeHtml(POINT_TYPES[pendingRecord.type].label)}` : (lsPreselect ? '次のプレー<br>この選手で' : '選手<br>先に選べる');
   el.innerHTML = `<span class="lab">${lab}</span>` +
     lsStripPlayers().map(p => `<button class="${lsPreselect === p.name ? 'sel' : ''}" onclick="lsPlayerTap('${escapeAttr(p.name)}')">` +
-      `${p.number ? `<span class="n">#${escapeHtml(p.number)}${p.libero ? ' L' : ''}</span>` : (p.libero ? '<span class="n">L</span>' : '')}${escapeHtml(p.short || p.name)}</button>`).join('') +
+      `${(p.number || p.libero || p.guest) ? `<span class="n">${p.number ? '#' + escapeHtml(p.number) : ''}${p.libero ? ' L' : ''}${p.guest ? ' 助' : ''}</span>` : ''}${escapeHtml(p.short || p.name)}</button>`).join('') +
     (ask ? `<button class="cancel" onclick="lsCancelAsk()">✕</button>` : '') +
     (state.detailMode && !ask ? `<button class="toss ${pendingSetterOverride === OTHER_SETTER ? 'sel' : ''}" onclick="toggleOtherSetter()">トス<br>${pendingSetterOverride === OTHER_SETTER ? '他の選手' : 'セッター'}</button>` : '');
 }
@@ -4249,29 +4261,34 @@ function setHeatmapPlayer(n) { heatmapPlayer = n; switchStatsTab('heatmap'); }
 function setHeatmapRot(r) { heatmapRotFilter = r === 'all' ? 'all' : parseInt(r); switchStatsTab('heatmap'); }
 
 function renderIndividual(rallies) {
-  const players = state.players.filter(p => p.active && p.name);
-  const rows = players.map(p => {
+  const gn = guestNames();
+  const own = state.players.filter(p => p.active && p.name && !p.guest);
+  // 助っ人は1行に合算（見分けがついていない前提）
+  const units = own.map(p => ({ name: p.name, names: [p.name] }))
+    .concat(state.players.some(p => p.active && p.guest && p.name) ? [{ name: GUEST_LABEL, names: gn }] : []);
+  const rows = units.map(u => {
+    const is = n => u.names.includes(n);
     // サーブ
-    const serveAttempts = rallies.filter(r => r.servingSide === 'us' && r.server === p.name).length;
-    const aces = rallies.filter(r => r.type === 'us_ace' && r.player === p.name).length;
-    const serveErr = rallies.filter(r => r.type === 'us_serve_err' && r.player === p.name).length;
+    const serveAttempts = rallies.filter(r => r.servingSide === 'us' && is(r.server)).length;
+    const aces = rallies.filter(r => r.type === 'us_ace' && is(r.player)).length;
+    const serveErr = rallies.filter(r => r.type === 'us_serve_err' && is(r.player)).length;
     const serveEff = serveAttempts > 0 ? Math.round((aces - serveErr) / serveAttempts * 100) : null;
 
     // スパイク
-    const kills = rallies.filter(r => r.type === 'us_kill' && r.player === p.name).length;
-    const spikeErr = rallies.filter(r => r.type === 'us_spike_err' && r.player === p.name).length;
-    const spikeContinued = rallies.filter(r => r.type === 'spike_attempt' && r.player === p.name).length;
+    const kills = rallies.filter(r => r.type === 'us_kill' && is(r.player)).length;
+    const spikeErr = rallies.filter(r => r.type === 'us_spike_err' && is(r.player)).length;
+    const spikeContinued = rallies.filter(r => r.type === 'spike_attempt' && is(r.player)).length;
     const spikeAttempts = kills + spikeErr + spikeContinued;
     const spikeEff = spikeAttempts > 0 ? Math.round((kills - spikeErr) / spikeAttempts * 100) : null;
 
     // その他
-    const blocks = rallies.filter(r => r.type === 'us_block' && r.player === p.name).length;
-    const blockTouch = rallies.filter(r => r.type === 'block_touch' && r.player === p.name).length;
+    const blocks = rallies.filter(r => r.type === 'us_block' && is(r.player)).length;
+    const blockTouch = rallies.filter(r => r.type === 'block_touch' && is(r.player)).length;
     // 個人責任のミス: 新ミスタイプ(レシーブ/ディグ/カバー/トス/返球/その他)を全部足す
     const otherErrTypes = ['us_other_err', 'us_recv_err', 'us_dig_err', 'us_cover_err', 'us_toss_err', 'us_return_err'];
-    const otherErr = rallies.filter(r => otherErrTypes.includes(r.type) && r.player === p.name).length;
+    const otherErr = rallies.filter(r => otherErrTypes.includes(r.type) && is(r.player)).length;
 
-    return { name: p.name, aces, serveErr, serveAttempts, serveEff, kills, spikeErr, spikeAttempts, spikeEff, blocks, blockTouch, otherErr };
+    return { name: u.name, aces, serveErr, serveAttempts, serveEff, kills, spikeErr, spikeAttempts, spikeEff, blocks, blockTouch, otherErr };
   });
 
   const fmtEff = v => {
@@ -4448,8 +4465,8 @@ function renderDetailStats() {
   if (digs.length || withReact.length || withPower.length) {
     const m = {};
     const g = n => { if (!m[n]) m[n] = { up:0, lost:0 }; return m[n]; };
-    digs.forEach(r => { if (r.player) g(r.player).up++; });
-    withReact.forEach(r => (r.court.react || []).forEach(n => g(n).lost++));
+    digs.forEach(r => { if (r.player) g(statName(r.player)).up++; });
+    withReact.forEach(r => (r.court.react || []).forEach(n => g(statName(n)).lost++));
     const none = withReact.filter(r => r.court.noReact).length;
     const hard = withPower.filter(r => r.court.power === 'hard').length;
     const soft = withPower.filter(r => r.court.power === 'soft').length;
@@ -4489,7 +4506,7 @@ function renderDetailStats() {
   if (atkPower.length) {
     const m = {};
     const g = n => { if (!m[n]) m[n] = { hard:{n:0,k:0}, soft:{n:0,k:0} }; return m[n]; };
-    atkPower.forEach(r => { const d = g(r.player || '(不明)')[r.power === 'soft' ? 'soft' : 'hard']; d.n++; if (r.type === 'us_kill') d.k++; });
+    atkPower.forEach(r => { const d = g(statName(r.player || '(不明)'))[r.power === 'soft' ? 'soft' : 'hard']; d.n++; if (r.type === 'us_kill') d.k++; });
     const pct = d => d.n ? (d.k / d.n * 100).toFixed(0) + '%' : '-';
     const rows = Object.keys(m).sort((a,b) => (m[b].hard.n+m[b].soft.n) - (m[a].hard.n+m[a].soft.n)).map(n => {
       const d = m[n];
@@ -4907,7 +4924,7 @@ function renderCourtPanel(){
   if (ct.needPlayer) {
     const cands = playerCandidatesFor(ct.type);
     who = `<span class="ct-lab">誰が</span>` +
-      cands.map(p => `<button class="ct-chip who ${ct.player===p.name?'sel':''}" onclick="ctPickPlayer('${escapeAttr(p.name)}')">${escapeHtml(p.short || p.name)}</button>`).join('');
+      cands.map(p => `<button class="ct-chip who ${ct.player===p.name?'sel':''}" onclick="ctPickPlayer('${escapeAttr(p.name)}')">${escapeHtml(p.short || p.name)}${p.guest ? '<small>助</small>' : ''}</button>`).join('');
   }
   if (state.detailMode && spec.side === 'us' && ct.type === 'us_kill') {
     who += `<span class="ct-lab">トス</span><button class="ct-tog toss ${pendingSetterOverride === OTHER_SETTER ? 'sel' : ''}" onclick="toggleOtherSetter(); renderCourtModal();">${pendingSetterOverride === OTHER_SETTER ? '他の選手のトス' : 'セッターのトス'}</button>`;
@@ -4921,7 +4938,7 @@ function renderCourtPanel(){
   if (needReact) {
     const cands = defenseCandidates();
     react = `<span class="ct-lab">${mergedLostMode() && !ct.needPlayer ? '触った・反応した人' : '反応した人'}</span>` +
-      cands.map(p => `<button class="ct-chip ${ct.react.has(p.name)?'sel':''}" onclick="ctToggleReact('${escapeAttr(p.name)}')">${escapeHtml(p.short || p.name)}</button>`).join('') +
+      cands.map(p => `<button class="ct-chip ${ct.react.has(p.name)?'sel':''}" onclick="ctToggleReact('${escapeAttr(p.name)}')">${escapeHtml(p.short || p.name)}${p.guest ? '<small>助</small>' : ''}</button>`).join('') +
       (allowNone ? `<button class="ct-chip none ${ct.noReact?'sel':''}" onclick="ctToggleNoReact()">誰も動けず</button>` : '');
   }
   const noteTxt = (ct.from && ct.to && !ready)
@@ -5028,7 +5045,8 @@ function renderToView(){
   // スパイク効果率（セッターに見せる用）
   const att = {};
   rallies.forEach(r => { if ((r.type === 'us_kill' || r.type === 'us_spike_err' || r.type === 'spike_attempt') && r.player) {
-    const a = att[r.player] || (att[r.player] = { n:0, k:0, e:0 }); a.n++; if (r.type === 'us_kill') a.k++; if (r.type === 'us_spike_err') a.e++; } });
+    const nm = statName(r.player);
+    const a = att[nm] || (att[nm] = { n:0, k:0, e:0 }); a.n++; if (r.type === 'us_kill') a.k++; if (r.type === 'us_spike_err') a.e++; } });
   const rows = Object.keys(att).sort((a,b) => att[b].n - att[a].n).map(n => { const a = att[n]; const eff = Math.round((a.k - a.e) / a.n * 100);
     return `<tr><td>${escapeHtml(n)}</td><td>${a.n}</td><td>${a.k}</td><td>${a.e}</td><td><b>${eff > 0 ? '+' : ''}${eff}%</b></td></tr>`; }).join('');
   document.getElementById('toBody').innerHTML =
