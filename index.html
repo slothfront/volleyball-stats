@@ -1206,6 +1206,7 @@ input[type="number"] {
 .ct-shot.soft{stroke:#d97706;stroke-dasharray:.35 .25;}
 .ct-shot.serve{stroke:var(--blue);}
 .ct-shot.kill{stroke:#15803d;}
+.ct-shot.dashed{stroke-dasharray:.35 .25;}
 .ct-to.mine{fill:#15803d;}
 .ct-chip.who.sel{background:#15803d;color:#fff;}
 .ct-from{fill:var(--paper);stroke:var(--black);stroke-width:.1;}
@@ -1480,8 +1481,9 @@ input[type="number"] {
     </div>
 
     <div class="section-label">RALLY CONTINUED (NO POINT)</div>
-    <div class="record-grid" id="continuedGrid" style="grid-template-columns: 1fr;">
-      <button class="record-btn attempt" data-type="spike_attempt" onclick="recordPoint('spike_attempt')">スパイク試行<span class="sub">拾われた / 止められた / つながれた</span></button>
+    <div class="record-grid" id="continuedGrid" style="grid-template-columns: 1fr 1fr;">
+      <button class="record-btn attempt" data-type="spike_attempt" onclick="recordPoint('spike_attempt','hard')">スパイク 強打<span class="sub">つながれた・点なし</span></button>
+      <button class="record-btn attempt" data-type="spike_attempt" onclick="recordPoint('spike_attempt','soft')">スパイク 軟打・フェイント<span class="sub">つながれた・点なし</span></button>
       <button class="record-btn attempt" id="btnDigAttempt" data-type="dig_attempt" onclick="recordPoint('dig_attempt')" style="display:none;">ディグ↑ 上げた<span class="sub">選手のみ・点なし</span></button>
     </div>
 
@@ -2789,9 +2791,9 @@ function startMatch() {
 // ============ 記録 ============
 let pendingRecord = null; // { type, player, zone }
 
-function recordPoint(type) {
+function recordPoint(type, power) {
   const pt = POINT_TYPES[type];
-  pendingRecord = { type, player: null, zone: null, detail: null };
+  pendingRecord = { type, player: null, zone: null, detail: null, power: power || null };
   buzz();
   // 点で記録するモード: コート図へ直行（選手が要るタイプは図の中で選ぶ＝1画面で済ませる）
   if (usesCourt(type)) {
@@ -2871,8 +2873,9 @@ const LS_SCORE_BTNS = [
   { type:'them_err',      t:'相手ミス',       s:'タップのみ', cls:'us',    hot:true, span:2, rspan:2 },
   { type:'us_kill',       t:'スパイク決定',   s:'選手+ゾーン', cls:'us', deepS:'選手＋点' },
   { type:'us_ace',        t:'エース',         s:'ゾーン',     cls:'us', deepS:'点で記録' },
-  { type:'us_block',      t:'ブロック決定',   s:'選手',       cls:'us' },
-  { type:'spike_attempt', t:'スパイク',       s:'つながれた・点なし', cls:'ghost' },
+  { type:'us_block',      t:'ブロック決定',   s:'選手',       cls:'us', span:2 },
+  { type:'spike_attempt', t:'強打',           s:'つながれた・点なし', cls:'ghost', power:'hard' },
+  { type:'spike_attempt', t:'軟打・フェイント', s:'つながれた・点なし', cls:'ghost', power:'soft' },
 ];
 // 失点を点で記録するモードでは「ディグ↑（上げた）」が加わり、「その他」が1列になる
 function lsLoseBtns(){
@@ -2911,7 +2914,7 @@ const LS_OTHER_BTNS = ['us_serve_err','us_cover_err','us_toss_err','us_return_er
 function lsBtnHtml(b){
   const disabled = ((b.type === 'us_ace' || b.type === 'us_serve_err') && state.serving !== 'us') ||
                    ((b.type === 'them_ace' || b.type === 'us_recv_err') && state.serving === 'us');
-  const onclick = b.type === '__other' ? 'openOtherModal()' : (b.type === '__timeout' ? 'recordTimeout()' : `recordPoint('${b.type}')`);
+  const onclick = b.type === '__other' ? 'openOtherModal()' : (b.type === '__timeout' ? 'recordTimeout()' : `recordPoint('${b.type}'${b.power ? `,'${b.power}'` : ''})`);
   const sub = (b.deepS && (state.courtLevel|0) >= 1) ? b.deepS : b.s;
   return `<button class="ls-btn ${b.cls}${b.hot?' hot':''}" ${disabled?'disabled':''}
     style="grid-column:span ${b.span||1};grid-row:span ${b.rspan||1};" onclick="${onclick}">
@@ -3320,6 +3323,7 @@ function finalizePoint() {
     zone: zone || null,
     detail: detail || null,
     court: pendingRecord.court ? JSON.parse(JSON.stringify(pendingRecord.court)) : undefined,
+    power: pendingRecord.power || undefined,   // 自チームの攻撃の球質（強打／軟打）。失点側は court.power
     server: state.serving === 'us' ? serverName : '',
     rotation: rotation,
     servingSide: state.serving,
@@ -3540,7 +3544,7 @@ function renderRecord() {
   if (dg && cg) {
     const deep = (state.courtLevel|0) >= 1;
     dg.style.display = deep ? '' : 'none';
-    cg.style.gridTemplateColumns = deep ? '1fr 1fr' : '1fr';
+    cg.style.gridTemplateColumns = deep ? '1fr 1fr 1fr' : '1fr 1fr';
   }
   // 点＋反応では ディグミス・レシーブミスのボタンを隠し、被スパイク／被エースに統合する
   const merged = mergedLostMode();
@@ -4145,7 +4149,8 @@ function renderDetailStats() {
   const digs = rallies.filter(r => r.type === 'dig_attempt');
   const withReact = rallies.filter(r => r.court && (r.court.noReact || (r.court.react && r.court.react.length)));
   const withPower = rallies.filter(r => r.court && r.court.power);
-  if (!withFB.length && !withSetter.length && !withChance.length && !digs.length && !withReact.length && !withPower.length) { el.innerHTML = ''; return; }
+  const atkPower = rallies.filter(r => r.power && (r.type === 'us_kill' || r.type === 'spike_attempt' || r.type === 'us_spike_err'));
+  if (!withFB.length && !withSetter.length && !withChance.length && !digs.length && !withReact.length && !withPower.length && !atkPower.length) { el.innerHTML = ''; return; }
 
   // 集計器: name -> {n, sum, cnt[0..3]}
   const agg = () => ({});
@@ -4236,12 +4241,31 @@ function renderDetailStats() {
       </p></div>`;
   }
 
+  // 攻撃の球質: 選手別に 強打／軟打 の本数（決定＋継続＋ミス）と決定率
+  let atkHtml = '';
+  if (atkPower.length) {
+    const m = {};
+    const g = n => { if (!m[n]) m[n] = { hard:{n:0,k:0}, soft:{n:0,k:0} }; return m[n]; };
+    atkPower.forEach(r => { const d = g(r.player || '(不明)')[r.power === 'soft' ? 'soft' : 'hard']; d.n++; if (r.type === 'us_kill') d.k++; });
+    const pct = d => d.n ? (d.k / d.n * 100).toFixed(0) + '%' : '-';
+    const rows = Object.keys(m).sort((a,b) => (m[b].hard.n+m[b].soft.n) - (m[a].hard.n+m[a].soft.n)).map(n => {
+      const d = m[n];
+      return `<tr><td>${escapeHtml(n)}</td><td>${d.hard.n}</td><td>${d.hard.k}</td><td>${pct(d.hard)}</td><td>${d.soft.n}</td><td>${d.soft.k}</td><td>${pct(d.soft)}</td></tr>`;
+    }).join('');
+    atkHtml = `<div class="card"><h2>攻撃の球質（強打／軟打）</h2>
+      <p style="font-size:12px;color:var(--text-tertiary);margin:0 0 8px;line-height:1.5;">
+        本数＝決定＋つながれた（＋球質を付けたミス）。球質を付けなかった本数は含まない。</p>
+      <div style="overflow-x:auto;"><table class="stat-table"><thead><tr>
+        <th>選手</th><th>強打<br>本数</th><th>強打<br>決定</th><th>強打<br>決定率</th><th>軟打<br>本数</th><th>軟打<br>決定</th><th>軟打<br>決定率</th></tr></thead>
+        <tbody>${rows}</tbody></table></div></div>`;
+  }
+
   el.innerHTML =
-    '<div class="section-label" style="margin-top:18px;">詳細記録（1本目の評価・セッター・守備）</div>' +
+    '<div class="section-label" style="margin-top:18px;">詳細記録（1本目の評価・セッター・守備・攻撃の球質）</div>' +
     tbl('サーブ', '自チームのサーブ。◎＝相手を大きく崩した／×＝サーブミス。', serve) +
     tbl('レセプション', '相手サーブの1本目。◎＝そのままトスに入れた／×＝ミス。', recv) +
     tbl('チャンスボール処理', '相手が返してきた球の処理。レセプションと見くらべる。', chance) +
-    setterHtml + defHtml;
+    setterHtml + atkHtml + defHtml;
 }
 
 // ============ CSV エクスポート ============
@@ -4266,7 +4290,7 @@ function exportRallyCSV() {
       (r.court && r.court.from) ? r.court.from.y : '',
       (r.court && r.court.to) ? r.court.to.x : '',
       (r.court && r.court.to) ? r.court.to.y : '',
-      (r.court && r.court.power) ? r.court.power : '',
+      r.power || ((r.court && r.court.power) ? r.court.power : ''),
       r.court ? (r.court.noReact ? 'none' : (r.court.react || []).join('|')) : '',
       r.scoreUsAfter, r.scoreThemAfter,
       new Date(r.ts).toISOString()
@@ -4406,8 +4430,10 @@ function flipCourtSide(){
 }
 // ログ・トースト用の短い印（強打／軟打・反応）
 function courtBadge(r){
-  if (!r || !r.court) return '';
-  let b = r.court.power === 'hard' ? ' 強' : (r.court.power === 'soft' ? ' 軟' : '');
+  if (!r) return '';
+  const pw = r.power || (r.court && r.court.power);
+  let b = pw === 'hard' ? ' 強' : (pw === 'soft' ? ' 軟' : '');
+  if (!r.court) return b;
   if (r.court.noReact) b += ' 無反応';
   else if (r.court.react && r.court.react.length) {
     const others = r.court.react.filter(n => n !== r.player);
@@ -4429,7 +4455,7 @@ const COURT_TYPES = {
   'us_dig_err':  { side:'them', from:'どこから打たれたか', to:'どこに落ちたか', power:true,  cls:'spike' },
   'them_ace':    { side:'them', from:'どこからサーブされたか', to:'どこに落ちたか', power:false, cls:'serve' },
   'us_recv_err': { side:'them', from:'どこからサーブされたか', to:'どこに落ちたか', power:false, cls:'serve' },
-  'us_kill':     { side:'us',   from:'どこから打ったか', to:'どこに決まったか', power:false, cls:'kill' },
+  'us_kill':     { side:'us',   from:'どこから打ったか', to:'どこに決まったか', power:'optional', cls:'kill' },
   'us_ace':      { side:'us',   from:'どこからサーブしたか', to:'どこに決まったか', power:false, cls:'kill' },
 };
 // 相手コートの落下点 → 相手から見たゾーン番号（相手の左＝自分の右なので鏡映し）
@@ -4505,7 +4531,7 @@ function courtSvgFrame(o, inner, id){
 let ct = null; // 記録中: { type, from:{X,Y}, to:{X,Y}, power, react:Set, noReact, o }
 function openCourtModal(type){
   const spec = COURT_TYPES[type];
-  ct = { type, from:null, to:null, power: spec.power ? 'hard' : null, react:new Set(), noReact:false, o: courtOrient(),
+  ct = { type, from:null, to:null, power: spec.power === true ? 'hard' : null, react:new Set(), noReact:false, o: courtOrient(),
          player: (pendingRecord && pendingRecord.player) || null, needPlayer: !!POINT_TYPES[type].needPlayer };
   // ディグミス・レシーブミスは選んだ選手を「反応した人」に最初から入れておく
   if (ct.player) ct.react.add(ct.player);
@@ -4533,7 +4559,7 @@ function renderCourtModal(){
   }
   if (ct.from && ct.to) {
     const a = P(ct.from.X, ct.from.Y), b = P(ct.to.X, ct.to.Y);
-    inner += `<line x1="${f(a.x)}" y1="${f(a.y)}" x2="${f(b.x)}" y2="${f(b.y)}" class="ct-shot ${spec.power ? ct.power : spec.cls}"/>`;
+    inner += `<line x1="${f(a.x)}" y1="${f(a.y)}" x2="${f(b.x)}" y2="${f(b.y)}" class="ct-shot ${spec.side === 'us' ? spec.cls + (ct.power === 'soft' ? ' dashed' : '') : (ct.power || spec.cls)}"/>`;
     inner += `<circle cx="${f(b.x)}" cy="${f(b.y)}" r=".42" class="ct-to ${ct.noReact ? 'none' : ''} ${spec.side==='us' ? 'mine' : ''}"/>`;
     inner += `<text x="${f(b.x)}" y="${f(b.y - 0.75)}" class="ct-zlab">Z${zoneForCourtType(ct.type, ct.to)}</text>`;
   }
@@ -4585,7 +4611,7 @@ function renderCourtPanel(){
       cands.map(p => `<button class="ct-chip who ${ct.player===p.name?'sel':''}" onclick="ctPickPlayer('${escapeAttr(p.name)}')">${escapeHtml(p.short || p.name)}</button>`).join('');
   }
   if (spec.power) {
-    power = `<span class="ct-lab">球質</span><div class="ct-pow">
+    power = `<span class="ct-lab">球質${spec.power === 'optional' ? '（任意）' : ''}</span><div class="ct-pow">
       <button class="ct-tog ${ct.power==='hard'?'sel':''}" onclick="ctSetPower('hard')">強打</button>
       <button class="ct-tog ${ct.power==='soft'?'sel':''}" onclick="ctSetPower('soft')"><span class="full">軟打・フェイント</span><span class="short">軟打</span></button></div>`;
   }
@@ -4620,7 +4646,7 @@ function renderCourtPanel(){
         <button class="btn success" ${ready ? '' : 'disabled'} onclick="ctConfirm()">確定</button></div>` + note;
   }
 }
-function ctSetPower(v){ ct.power = v; renderCourtModal(); }
+function ctSetPower(v){ ct.power = (ct.power === v && COURT_TYPES[ct.type].power === 'optional') ? null : v; renderCourtModal(); }
 // 「誰が」を選ぶ。ディグミス・レシーブミスではその人を「反応した人」にも入れる（前の選択は外す）
 function ctPickPlayer(name){
   if (ct.player && ct.player !== name) ct.react.delete(ct.player);
@@ -4656,6 +4682,7 @@ function ctConfirm(){
   }
   pendingRecord.zone = zoneForCourtType(ct.type, ct.to);
   pendingRecord.court = { from:{ x:ct.from.X, y:ct.from.Y }, to:{ x:ct.to.X, y:ct.to.Y }, power: ct.power || null };
+  if (COURT_TYPES[ct.type].side === 'us') pendingRecord.power = ct.power || null;   // 自チームの攻撃は rally.power にも
   if (lvl >= 2 && COURT_TYPES[ct.type].side === 'them') { pendingRecord.court.react = [...ct.react]; pendingRecord.court.noReact = !!ct.noReact; }
   ct = null;
   closeModal('modal-court');
@@ -4670,7 +4697,7 @@ function renderCourtChart(list){
   const withC = list.filter(r => r.court && r.court.from && r.court.to);
   let inner = '';
   const mine = withC.length > 0 && !!COURT_TYPES[effectiveType(withC[0])] && COURT_TYPES[effectiveType(withC[0])].side === 'us';
-  const clsOf = r => { const c = r.court; return c.power === 'hard' ? 'hard' : (c.power === 'soft' ? 'soft' : (mine ? 'kill' : 'serve')); };
+  const clsOf = r => { const c = r.court; if (mine) return 'kill' + (c.power === 'soft' ? ' dashed' : ''); return c.power === 'hard' ? 'hard' : (c.power === 'soft' ? 'soft' : 'serve'); };
   withC.forEach(r => {
     const c = r.court, a = P(c.from.x, c.from.y), b = P(c.to.x, c.to.y);
     inner += `<line x1="${f(a.x)}" y1="${f(a.y)}" x2="${f(b.x)}" y2="${f(b.y)}" class="ct-shot ${clsOf(r)}" opacity=".8"/>`;
@@ -4690,7 +4717,10 @@ function renderCourtChart(list){
     const pc = {};
     withC.forEach(r => { const n = r.player || (r.server || '(不明)'); pc[n] = (pc[n] || 0) + 1; });
     const pcTxt = Object.keys(pc).sort((a,b) => pc[b]-pc[a]).map(n => `${escapeHtml(n)} ${pc[n]}`).join('、');
-    legend = `小さな白丸＝打った位置 → 緑の線 → 塗った丸＝決まった位置（${withC.length}本）${pcTxt ? '<br>' + pcTxt : ''}`;
+    const nSoftK = withC.filter(r => r.court.power === 'soft').length, nHardK = withC.filter(r => r.court.power === 'hard').length;
+    legend = `小さな白丸＝打った位置 → 緑の線 → 塗った丸＝決まった位置（${withC.length}本）` +
+      ((nSoftK || nHardK) ? `<br>実線＝強打 ${nHardK} ／ 破線＝軟打・フェイント ${nSoftK}${withC.length - nSoftK - nHardK ? ' ／ 球質なし ' + (withC.length - nSoftK - nHardK) : ''}` : '') +
+      (pcTxt ? '<br>' + pcTxt : '');
   } else {
     const nHard = withC.filter(r => r.court.power === 'hard').length;
     const nSoft = withC.filter(r => r.court.power === 'soft').length;
