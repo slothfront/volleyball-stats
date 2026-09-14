@@ -1167,12 +1167,12 @@ input[type="number"] {
 .ct-head h3{margin:0;flex:1;font-size:15px;}
 .ct-step{font-size:12px;font-weight:800;color:var(--red);}
 .ct-flip{display:none;font-family:inherit;font-weight:800;border:2px solid var(--black);background:var(--paper);padding:4px 10px;cursor:pointer;font-size:13px;}
-.ct-svgwrap{background:var(--paper);border:3px solid var(--black);min-height:0;display:flex;justify-content:center;}
-.ct-svgwrap svg{display:block;width:100%;height:min(52vh,560px);touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;}
+.ct-svgwrap{background:var(--paper);border:3px solid var(--black);min-height:0;flex:0 0 auto;display:flex;justify-content:center;}
+.ct-svgwrap svg{display:block;width:100%;height:min(46vh,520px);touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;}
 .ct-panel{display:flex;flex-direction:column;gap:6px;}
 .ct-row{display:flex;flex-wrap:wrap;gap:5px;align-items:center;}
 .ct-lab{font-size:11px;font-weight:800;color:var(--text-secondary);flex:0 0 auto;min-width:64px;}
-.ct-tog,.ct-chip{font-family:inherit;font-weight:800;font-size:13px;border:2px solid var(--black);background:var(--paper);color:var(--black);padding:8px 12px;cursor:pointer;min-height:40px;}
+.ct-tog,.ct-chip{font-family:inherit;font-weight:800;font-size:13px;border:2px solid var(--black);background:var(--paper);color:var(--black);padding:7px 10px;cursor:pointer;min-height:38px;}
 .ct-tog.sel{background:var(--red);color:#fff;}
 .ct-chip.sel{background:var(--blue);color:#fff;}
 .ct-chip.none.sel{background:var(--black);color:#fff;}
@@ -1191,6 +1191,9 @@ input[type="number"] {
 .ct-shot.hard{stroke:var(--red);}
 .ct-shot.soft{stroke:#d97706;stroke-dasharray:.35 .25;}
 .ct-shot.serve{stroke:var(--blue);}
+.ct-shot.kill{stroke:#15803d;}
+.ct-to.mine{fill:#15803d;}
+.ct-chip.who.sel{background:#15803d;color:#fff;}
 .ct-from{fill:var(--paper);stroke:var(--black);stroke-width:.1;}
 .ct-to{fill:var(--red);stroke:var(--black);stroke-width:.08;}
 .ct-to.none{fill:var(--paper);stroke:var(--red);stroke-width:.14;}
@@ -1301,9 +1304,9 @@ input[type="number"] {
   </div>
 
   <div class="card">
-    <h2>LOST POINTS — HOW DEEP</h2>
+    <h2>POINTS ON COURT — HOW DEEP</h2>
     <p style="font-size:12px;color:var(--text-tertiary);margin:0 0 8px;">
-      失点した球（被スパイク・ディグミス・被エース・レシーブミス）をどこまで記録するか。試合中も ⋯メニュー／調整から変えられます。
+      失点した球（被スパイク・ディグミス・被エース・レシーブミス）と、自チームのスパイク決定・サービスエースをどこまで記録するか。試合中も ⋯メニュー／調整から変えられます。
     </p>
     <div class="level-grid" id="courtLevelBtns"></div>
     <div id="courtSideWrap" style="margin-top:12px; display:none;">
@@ -2751,8 +2754,8 @@ function recordPoint(type) {
   const pt = POINT_TYPES[type];
   pendingRecord = { type, player: null, zone: null, detail: null };
   buzz();
-  // 失点を点で記録するモード: 選手が要らないタイプはそのままコート図へ
-  if (usesCourt(type) && !pt.needPlayer) {
+  // 点で記録するモード: コート図へ直行（選手が要るタイプは図の中で選ぶ＝1画面で済ませる）
+  if (usesCourt(type)) {
     openCourtModal(type);
     return;
   }
@@ -2827,8 +2830,8 @@ function isLandscapeMode(){
 // 左＝得点 / 右＝失点。R8戦の実測頻度（相手ミス35・ディグミス23・スパイク決定25…）で大きさを決める
 const LS_SCORE_BTNS = [
   { type:'them_err',      t:'相手ミス',       s:'タップのみ', cls:'us',    hot:true, span:2, rspan:2 },
-  { type:'us_kill',       t:'スパイク決定',   s:'選手+ゾーン', cls:'us' },
-  { type:'us_ace',        t:'エース',         s:'ゾーン',     cls:'us' },
+  { type:'us_kill',       t:'スパイク決定',   s:'選手+ゾーン', cls:'us', deepS:'選手＋点' },
+  { type:'us_ace',        t:'エース',         s:'ゾーン',     cls:'us', deepS:'点で記録' },
   { type:'us_block',      t:'ブロック決定',   s:'選手',       cls:'us' },
   { type:'spike_attempt', t:'継続',           s:'選手・点なし', cls:'ghost' },
 ];
@@ -2852,9 +2855,10 @@ const LS_OTHER_BTNS = ['us_serve_err','us_cover_err','us_toss_err','us_return_er
 function lsBtnHtml(b){
   const disabled = (b.type === 'us_ace' || b.type === 'us_serve_err') && state.serving !== 'us';
   const onclick = b.type === '__other' ? 'openOtherModal()' : `recordPoint('${b.type}')`;
+  const sub = (b.deepS && (state.courtLevel|0) >= 1) ? b.deepS : b.s;
   return `<button class="ls-btn ${b.cls}${b.hot?' hot':''}" ${disabled?'disabled':''}
     style="grid-column:span ${b.span||1};grid-row:span ${b.rspan||1};" onclick="${onclick}">
-    <span class="t">${escapeHtml(b.t)}</span><span class="s">${escapeHtml(b.s)}</span></button>`;
+    <span class="t">${escapeHtml(b.t)}</span><span class="s">${escapeHtml(sub)}</span></button>`;
 }
 
 function renderLandscape(){
@@ -3639,6 +3643,7 @@ let currentStatsTab = 'summary';
 let heatmapType = 'them_ace';
 let heatmapRotFilter = 'all';
 let heatmapView = 'zone'; // 'zone'=9面 / 'points'=点図(打点→落下点)
+let heatmapPlayer = 'all'; // 点図の選手フィルタ（自スパイク決定のみ）
 
 function renderStats() {
   // 念のため重複セットをクリーンアップ(過去バグの自己修復)
@@ -3858,8 +3863,12 @@ function renderHeatmap(rallies) {
   const filtered = rallies.filter(r => {
     if (effectiveType(r) !== heatmapType) return false;
     if (heatmapRotFilter !== 'all' && r.rotation !== heatmapRotFilter) return false;
+    if (heatmapType === 'us_kill' && heatmapPlayer !== 'all' && r.player !== heatmapPlayer) return false;
     return true;
   });
+  // 選手フィルタの候補（自スパイク決定で点の記録がある選手）
+  const killPlayers = heatmapType === 'us_kill'
+    ? [...new Set(rallies.filter(r => r.type === 'us_kill' && r.court && r.player).map(r => r.player))] : [];
 
   // ゾーン別カウント
   const zoneCounts = {};
@@ -3891,6 +3900,11 @@ function renderHeatmap(rallies) {
         <span style="font-size:12px;align-self:center;color:var(--text-secondary);">表示:</span>
         <button class="${heatmapView==='zone'?'active':''}" onclick="setHeatmapView('zone')">9ゾーン</button>
         <button class="${heatmapView==='points'?'active':''}" onclick="setHeatmapView('points')">点図</button>
+      </div>` : ''}
+      ${killPlayers.length ? `<div class="heatmap-controls">
+        <span style="font-size:12px;align-self:center;color:var(--text-secondary);">選手:</span>
+        <button class="${heatmapPlayer==='all'?'active':''}" onclick="setHeatmapPlayer('all')">ALL</button>
+        ${killPlayers.map(n => `<button class="${heatmapPlayer===n?'active':''}" onclick="setHeatmapPlayer('${escapeAttr(n)}')">${escapeHtml(n)}</button>`).join('')}
       </div>` : ''}
       ${showPoints ? renderCourtChart(filtered) : `${topHTML}
       <div class="heatmap-grid">
@@ -3926,8 +3940,9 @@ function renderHeatmap(rallies) {
   `;
 }
 
-function setHeatmapType(t) { heatmapType = t; switchStatsTab('heatmap'); }
+function setHeatmapType(t) { heatmapType = t; heatmapPlayer = 'all'; switchStatsTab('heatmap'); }
 function setHeatmapView(v) { heatmapView = v; switchStatsTab('heatmap'); }
+function setHeatmapPlayer(n) { heatmapPlayer = n; switchStatsTab('heatmap'); }
 function setHeatmapRot(r) { heatmapRotFilter = r === 'all' ? 'all' : parseInt(r); switchStatsTab('heatmap'); }
 
 function renderIndividual(rallies) {
@@ -4271,8 +4286,8 @@ function downloadCSV(rows, filename) {
 // ============ 失点の記録の深さ（ゾーン／点／点＋反応） ============
 const COURT_LEVELS = [
   { n:0, t:'ゾーン',   s:'9面から選ぶ（従来どおり）' },
-  { n:1, t:'点',       s:'コート図で 打点→落下点 をタップ。強打／軟打も記録。ゾーンは自動で決まる' },
-  { n:2, t:'点＋反応', s:'さらに「誰が反応したか」（複数可）／「誰も動けず」を記録。守備範囲の分配を見る用' },
+  { n:1, t:'点',       s:'コート図で 打点→落下点 をタップ（失点は強打／軟打も）。自チームの決定球も「どこから打ってどこに決まったか」。ゾーンは自動で決まる' },
+  { n:2, t:'点＋反応', s:'失点にはさらに「誰が反応したか」（複数可）／「誰も動けず」を記録。守備範囲の分配を見る用' },
 ];
 function renderCourtLevelBtns(){
   const el = document.getElementById('courtLevelBtns');
@@ -4330,12 +4345,18 @@ function courtBadge(r){
 // 表示の向きは3通り: 'v'＝縦持ち（相手が上・自分が下）／'hl'＝横持ちで自コートが左／'hr'＝自コートが右
 //   横持ちは「ベンチに座って見た向き」＝画面の下がベンチ側。自コートの左右は state.courtSide（セットごとに入れ替わる）
 const COURT_PAD_X = 3, COURT_PAD_Y = 2;
+// side:'them'＝相手の球（打点は相手側・落下点は自側）／side:'us'＝自チームの決定球（打点は自側・落下点は相手側）
 const COURT_TYPES = {
-  'them_kill':   { from:'どこから打たれたか', to:'どこに落ちたか', power:true,  cls:'spike' },
-  'us_dig_err':  { from:'どこから打たれたか', to:'どこに落ちたか', power:true,  cls:'spike' },
-  'them_ace':    { from:'どこからサーブされたか', to:'どこに落ちたか', power:false, cls:'serve' },
-  'us_recv_err': { from:'どこからサーブされたか', to:'どこに落ちたか', power:false, cls:'serve' },
+  'them_kill':   { side:'them', from:'どこから打たれたか', to:'どこに落ちたか', power:true,  cls:'spike' },
+  'us_dig_err':  { side:'them', from:'どこから打たれたか', to:'どこに落ちたか', power:true,  cls:'spike' },
+  'them_ace':    { side:'them', from:'どこからサーブされたか', to:'どこに落ちたか', power:false, cls:'serve' },
+  'us_recv_err': { side:'them', from:'どこからサーブされたか', to:'どこに落ちたか', power:false, cls:'serve' },
+  'us_kill':     { side:'us',   from:'どこから打ったか', to:'どこに決まったか', power:false, cls:'kill' },
+  'us_ace':      { side:'us',   from:'どこからサーブしたか', to:'どこに決まったか', power:false, cls:'kill' },
 };
+// 相手コートの落下点 → 相手から見たゾーン番号（相手の左＝自分の右なので鏡映し）
+function zoneFromCourtThem(X, Y){ return zoneFromCourt(18 - X, 9 - Y); }
+function zoneForCourtType(type, to){ return COURT_TYPES[type].side === 'us' ? zoneFromCourtThem(to.X, to.Y) : zoneFromCourt(to.X, to.Y); }
 function usesCourt(type){ return (state.courtLevel|0) >= 1 && !!COURT_TYPES[type]; }
 function courtOrient(){
   if (!isLandscapeMode()) return 'v';
@@ -4394,9 +4415,10 @@ function courtSvgFrame(o, inner, id){
 let ct = null; // 記録中: { type, from:{X,Y}, to:{X,Y}, power, react:Set, noReact, o }
 function openCourtModal(type){
   const spec = COURT_TYPES[type];
-  ct = { type, from:null, to:null, power: spec.power ? 'hard' : null, react:new Set(), noReact:false, o: courtOrient() };
+  ct = { type, from:null, to:null, power: spec.power ? 'hard' : null, react:new Set(), noReact:false, o: courtOrient(),
+         player: (pendingRecord && pendingRecord.player) || null, needPlayer: !!POINT_TYPES[type].needPlayer };
   // ディグミス・レシーブミスは選んだ選手を「反応した人」に最初から入れておく
-  if (pendingRecord && pendingRecord.player) ct.react.add(pendingRecord.player);
+  if (ct.player) ct.react.add(ct.player);
   document.getElementById('ctTitle').textContent = POINT_TYPES[type].label;
   renderCourtModal();
   document.getElementById('modal-court').classList.add('active');
@@ -4421,9 +4443,9 @@ function renderCourtModal(){
   }
   if (ct.from && ct.to) {
     const a = P(ct.from.X, ct.from.Y), b = P(ct.to.X, ct.to.Y);
-    inner += `<line x1="${f(a.x)}" y1="${f(a.y)}" x2="${f(b.x)}" y2="${f(b.y)}" class="ct-shot ${spec.power ? ct.power : 'serve'}"/>`;
-    inner += `<circle cx="${f(b.x)}" cy="${f(b.y)}" r=".42" class="ct-to ${ct.noReact ? 'none' : ''}"/>`;
-    inner += `<text x="${f(b.x)}" y="${f(b.y - 0.75)}" class="ct-zlab">Z${zoneFromCourt(ct.to.X, ct.to.Y)}</text>`;
+    inner += `<line x1="${f(a.x)}" y1="${f(a.y)}" x2="${f(b.x)}" y2="${f(b.y)}" class="ct-shot ${spec.power ? ct.power : spec.cls}"/>`;
+    inner += `<circle cx="${f(b.x)}" cy="${f(b.y)}" r=".42" class="ct-to ${ct.noReact ? 'none' : ''} ${spec.side==='us' ? 'mine' : ''}"/>`;
+    inner += `<text x="${f(b.x)}" y="${f(b.y - 0.75)}" class="ct-zlab">Z${zoneForCourtType(ct.type, ct.to)}</text>`;
   }
   const wrap = document.getElementById('ctSvgWrap');
   wrap.innerHTML = courtSvgFrame(o, inner, 'ctSvg');
@@ -4439,11 +4461,14 @@ function onCourtTap(e){
   const p = pt.matrixTransform(m.inverse());
   const c = svgToCourt(ct.o, p.x, p.y);
   const X = Math.round(c.X*10)/10, Y = Math.round(c.Y*10)/10;
+  const mine = COURT_TYPES[ct.type].side === 'us';   // 自チームの決定球: 打点は自側・落下点は相手側
   if (!ct.from) {
-    if (X <= 9) { courtNotice('①は相手コート側（ネットの向こう）をタップしてください'); return; }
+    if (!mine && X <= 9) { courtNotice('①は相手コート側（ネットの向こう）をタップしてください'); return; }
+    if (mine && X > 9)   { courtNotice('①は自コート側（打った位置）をタップしてください'); return; }
     ct.from = { X, Y };
   } else {
-    if (X > 9) { courtNotice('②は自コート側をタップしてください（コート外もOK）'); return; }
+    if (!mine && X > 9)  { courtNotice('②は自コート側をタップしてください（コート外もOK）'); return; }
+    if (mine && X <= 9)  { courtNotice('②は相手コート側（決まった位置）をタップしてください'); return; }
     ct.to = { X, Y };
   }
   buzz();
@@ -4460,26 +4485,51 @@ function renderCourtPanel(){
   const spec = COURT_TYPES[ct.type];
   const lvl = state.courtLevel|0;
   let h = '';
+  if (ct.needPlayer) {
+    const cands = playerCandidatesFor(ct.type);
+    h += `<div class="ct-row"><span class="ct-lab">誰が</span>` +
+      cands.map(p => `<button class="ct-chip who ${ct.player===p.name?'sel':''}" onclick="ctPickPlayer('${escapeAttr(p.name)}')">${escapeHtml(p.short || p.name)}</button>`).join('') +
+      `</div>`;
+  }
   if (spec.power) {
     h += `<div class="ct-row"><span class="ct-lab">球質</span>
       <button class="ct-tog ${ct.power==='hard'?'sel':''}" onclick="ctSetPower('hard')">強打</button>
       <button class="ct-tog ${ct.power==='soft'?'sel':''}" onclick="ctSetPower('soft')">軟打・フェイント</button></div>`;
   }
-  if (lvl >= 2) {
+  if (lvl >= 2 && spec.side === 'them') {
     const cands = defenseCandidates();
     h += `<div class="ct-row"><span class="ct-lab">反応した人</span>` +
       cands.map(p => `<button class="ct-chip ${ct.react.has(p.name)?'sel':''}" onclick="ctToggleReact('${escapeAttr(p.name)}')">${escapeHtml(p.short || p.name)}</button>`).join('') +
       `<button class="ct-chip none ${ct.noReact?'sel':''}" onclick="ctToggleNoReact()">誰も動けず</button></div>`;
   }
-  const ready = !!(ct.from && ct.to && (lvl < 2 || ct.react.size > 0 || ct.noReact));
+  const needReact = lvl >= 2 && spec.side === 'them';
+  const ready = !!(ct.from && ct.to && (!ct.needPlayer || ct.player) && (!needReact || ct.react.size > 0 || ct.noReact));
   h += `<div class="ct-actions">
     <button class="btn secondary" onclick="ctCancel()">キャンセル</button>
     <button class="btn outline" onclick="ctReset()">点をやり直す</button>
     <button class="btn success" ${ready ? '' : 'disabled'} onclick="ctConfirm()">確定</button></div>`;
-  if (lvl >= 2 && ct.from && ct.to && !ready) h += `<p class="ct-note">反応した人を選ぶ（複数可）か「誰も動けず」を押すと確定できます。</p>`;
+  if (ct.from && ct.to && !ready) {
+    h += `<p class="ct-note">${ct.needPlayer && !ct.player ? '「誰が」を選ぶ' : '反応した人を選ぶ（複数可）か「誰も動けず」を押す'}と確定できます。</p>`;
+  }
   document.getElementById('ctPanel').innerHTML = h;
 }
 function ctSetPower(v){ ct.power = v; renderCourtModal(); }
+// 「誰が」を選ぶ。ディグミス・レシーブミスではその人を「反応した人」にも入れる（前の選択は外す）
+function ctPickPlayer(name){
+  if (ct.player && ct.player !== name) ct.react.delete(ct.player);
+  ct.player = name;
+  if (COURT_TYPES[ct.type].side === 'them') { ct.react.add(name); ct.noReact = false; }
+  renderCourtModal();
+}
+// 選手の候補（openPlayerModal と同じ規則: コート上の6人、リベロが出られるタイプはリベロも）
+function playerCandidatesFor(type){
+  const pt = POINT_TYPES[type];
+  const items = onCourtPlayers();
+  if (!pt.liberoEligible) return items;
+  const libs = state.players.map((p,i) => ({...p, idx:i}))
+    .filter(p => p.active && p.libero && p.name && !items.some(x => x.idx === p.idx));
+  return items.concat(libs);
+}
 function ctToggleReact(name){
   if (ct.react.has(name)) ct.react.delete(name); else ct.react.add(name);
   ct.noReact = false;
@@ -4491,9 +4541,10 @@ function ctCancel(){ ct = null; closeModal('modal-court'); pendingRecord = null;
 function ctConfirm(){
   if (!ct || !ct.from || !ct.to) return;
   const lvl = state.courtLevel|0;
-  pendingRecord.zone = zoneFromCourt(ct.to.X, ct.to.Y);
+  if (ct.needPlayer) pendingRecord.player = ct.player || null;
+  pendingRecord.zone = zoneForCourtType(ct.type, ct.to);
   pendingRecord.court = { from:{ x:ct.from.X, y:ct.from.Y }, to:{ x:ct.to.X, y:ct.to.Y }, power: ct.power || null };
-  if (lvl >= 2) { pendingRecord.court.react = [...ct.react]; pendingRecord.court.noReact = !!ct.noReact; }
+  if (lvl >= 2 && COURT_TYPES[ct.type].side === 'them') { pendingRecord.court.react = [...ct.react]; pendingRecord.court.noReact = !!ct.noReact; }
   ct = null;
   closeModal('modal-court');
   proceedToDetailOrFinalize();
@@ -4506,26 +4557,42 @@ function renderCourtChart(list){
   const f = v => Math.round(v*100)/100;
   const withC = list.filter(r => r.court && r.court.from && r.court.to);
   let inner = '';
+  const mine = withC.length > 0 && !!COURT_TYPES[effectiveType(withC[0])] && COURT_TYPES[effectiveType(withC[0])].side === 'us';
+  const clsOf = r => { const c = r.court; return c.power === 'hard' ? 'hard' : (c.power === 'soft' ? 'soft' : (mine ? 'kill' : 'serve')); };
   withC.forEach(r => {
     const c = r.court, a = P(c.from.x, c.from.y), b = P(c.to.x, c.to.y);
-    const cls = c.power === 'hard' ? 'hard' : (c.power === 'soft' ? 'soft' : 'serve');
-    inner += `<line x1="${f(a.x)}" y1="${f(a.y)}" x2="${f(b.x)}" y2="${f(b.y)}" class="ct-shot ${cls}" opacity=".8"/>`;
+    inner += `<line x1="${f(a.x)}" y1="${f(a.y)}" x2="${f(b.x)}" y2="${f(b.y)}" class="ct-shot ${clsOf(r)}" opacity=".8"/>`;
+  });
+  // 点と線: 打点（小さな白抜き）→ 線 → 落下点（塗り）
+  withC.forEach(r => {
+    const c = r.court, a = P(c.from.x, c.from.y);
+    inner += `<circle cx="${f(a.x)}" cy="${f(a.y)}" r=".22" class="ct-from"/>`;
   });
   withC.forEach(r => {
     const c = r.court, b = P(c.to.x, c.to.y);
-    inner += `<circle cx="${f(b.x)}" cy="${f(b.y)}" r=".34" class="ct-to ${c.noReact ? 'none' : ''}"/>`;
+    inner += `<circle cx="${f(b.x)}" cy="${f(b.y)}" r=".34" class="ct-to ${c.noReact ? 'none' : ''} ${mine ? 'mine' : ''}"/>`;
   });
-  const nHard = withC.filter(r => r.court.power === 'hard').length;
-  const nSoft = withC.filter(r => r.court.power === 'soft').length;
-  const nServe = withC.filter(r => !r.court.power).length;
-  const nNone = withC.filter(r => r.court.noReact).length;
-  const rc = {};
-  withC.forEach(r => (r.court.react || []).forEach(n => { rc[n] = (rc[n] || 0) + 1; }));
-  const rcTxt = Object.keys(rc).sort((a,b) => rc[b]-rc[a]).map(n => `${escapeHtml(n)} ${rc[n]}`).join('、');
+  let legend;
+  if (mine) {
+    // 自チームの決定球: 選手別の本数
+    const pc = {};
+    withC.forEach(r => { const n = r.player || (r.server || '(不明)'); pc[n] = (pc[n] || 0) + 1; });
+    const pcTxt = Object.keys(pc).sort((a,b) => pc[b]-pc[a]).map(n => `${escapeHtml(n)} ${pc[n]}`).join('、');
+    legend = `小さな白丸＝打った位置 → 緑の線 → 塗った丸＝決まった位置（${withC.length}本）${pcTxt ? '<br>' + pcTxt : ''}`;
+  } else {
+    const nHard = withC.filter(r => r.court.power === 'hard').length;
+    const nSoft = withC.filter(r => r.court.power === 'soft').length;
+    const nServe = withC.filter(r => !r.court.power).length;
+    const nNone = withC.filter(r => r.court.noReact).length;
+    const rc = {};
+    withC.forEach(r => (r.court.react || []).forEach(n => { rc[n] = (rc[n] || 0) + 1; }));
+    const rcTxt = Object.keys(rc).sort((a,b) => rc[b]-rc[a]).map(n => `${escapeHtml(n)} ${rc[n]}`).join('、');
+    legend = `小さな白丸＝打点 → 線 → 丸＝落下点。赤の実線＝強打 ${nHard} ／ 橙の破線＝軟打・フェイント ${nSoft} ／ 青＝サーブ ${nServe}<br>` +
+      `白抜きの落下点＝誰も動けなかった失点 ${nNone}${rcTxt ? '<br>反応した人: ' + rcTxt : ''}`;
+  }
   return `<div class="ct-chart">${courtSvgFrame(o, inner, 'chartSvg')}</div>
     <p style="font-size:11px;color:var(--text-secondary);text-align:center;margin:8px 0 0;line-height:1.6;">
-      赤の実線＝強打 ${nHard} ／ 橙の破線＝軟打・フェイント ${nSoft} ／ 青＝サーブ ${nServe}<br>
-      白抜きの落下点＝誰も動けなかった失点 ${nNone}${rcTxt ? '<br>反応した人: ' + rcTxt : ''}<br>
+      ${legend}<br>
       点の記録がある ${withC.length}件（ゾーンだけの記録は「9ゾーン」で見る）
     </p>`;
 }
