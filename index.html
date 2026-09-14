@@ -1169,9 +1169,10 @@ input[type="number"] {
 
 /* ================= コート図（打点→落下点を点で記録） ================= */
 .modal-court{max-width:560px;display:flex;flex-direction:column;gap:8px;padding:14px;}
-.ct-head{display:flex;align-items:center;gap:8px;}
-.ct-head h3{margin:0;flex:1;font-size:15px;}
-.ct-step{font-size:12px;font-weight:800;color:var(--red);}
+.ct-head{display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap;}
+.ct-head h3{margin:0;flex:0 1 auto;min-width:0;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ct-step{font-size:12px;font-weight:800;color:var(--red);flex:1 1 100%;line-height:1.3;}  /* 縦持ちは2行目に */
+.ct-body{flex:0 0 auto;}  /* 図の箱は縮めない（縮むと下のパネルが図に重なる） */
 .ct-flip{display:none;font-family:inherit;font-weight:800;border:2px solid var(--black);background:var(--paper);padding:4px 10px;cursor:pointer;font-size:13px;}
 .ct-body{display:flex;flex-direction:column;min-height:0;}
 .ct-side{display:none;}
@@ -1238,7 +1239,9 @@ input[type="number"] {
   .modal-court .ct-head-actions{display:flex;gap:6px;flex:0 0 auto;}
   .modal-court .ct-head-actions .btn{padding:5px 12px;font-size:13px;min-height:36px;}
   .modal-court .ct-head-actions .btn.success{min-width:104px;font-size:15px;}
-  .modal-court .ct-head .ct-step{font-size:11px;line-height:1.2;}
+  .modal-court .ct-head{flex-wrap:nowrap;}
+  .modal-court .ct-head h3{flex:0 0 auto;max-width:28vw;}
+  .modal-court .ct-head .ct-step{flex:1 1 auto;font-size:11px;line-height:1.2;min-width:0;}
   .modal-court .ct-svgwrap{min-height:0;height:100%;}
   .modal-court .ct-svgwrap svg{height:100%;width:100%;}
   .modal-court .ct-panel{display:none;}
@@ -2873,6 +2876,16 @@ const LS_SCORE_BTNS = [
 function lsLoseBtns(){
   const deep = (state.courtLevel|0) >= 1;
   const zoneLabel = deep ? '点で記録' : 'ゾーン';
+  if (mergedLostMode()) {
+    // 点＋反応: 被スパイク失点とディグミス、被エースとレシーブミスを統合（反応の選択で自動で振り分け）
+    return [
+      { type:'them_kill',     t:'被スパイク／ディグミス', s:'点＋触った人', cls:'them', hot:true, span:2 },
+      { type:'us_spike_err',  t:'スパイクミス',   s:'選手',       cls:'err' },
+      { type:'them_ace',      t:'被エース／レシーブミス', s:'点＋触った人', cls:'them' },
+      { type:'__other',       t:'その他 ▸',       s:'6種＋反則',  cls:'ghost' },
+      { type:'dig_attempt',   t:'ディグ↑',        s:'上げた・点なし', cls:'ghost' },
+    ];
+  }
   return [
     { type:'us_dig_err',    t:'ディグミス',     s:deep ? '選手＋点' : '選手', cls:'err', hot:true, span:2 },
     { type:'us_spike_err',  t:'スパイクミス',   s:'選手',       cls:'err' },
@@ -3517,6 +3530,16 @@ function renderRecord() {
     dg.style.display = deep ? '' : 'none';
     cg.style.gridTemplateColumns = deep ? '1fr 1fr' : '1fr';
   }
+  // 点＋反応では ディグミス・レシーブミスのボタンを隠し、被スパイク／被エースに統合する
+  const merged = mergedLostMode();
+  const bDig = document.querySelector('.record-btn[data-type="us_dig_err"]');
+  const bRecv = document.querySelector('.record-btn[data-type="us_recv_err"]');
+  const bKill = document.querySelector('.record-btn[data-type="them_kill"]');
+  const bAce = document.querySelector('.record-btn[data-type="them_ace"]');
+  if (bDig) bDig.style.display = merged ? 'none' : '';
+  if (bRecv) bRecv.style.display = merged ? 'none' : '';
+  if (bKill) bKill.innerHTML = merged ? '被スパイク／ディグミス<span class="sub">(点＋触った人)</span>' : '被スパイク失点<span class="sub">(ゾーン)</span>';
+  if (bAce) bAce.innerHTML = merged ? '被エース／レシーブミス<span class="sub">(点＋触った人)</span>' : '被サービスエース<span class="sub">(ゾーン)</span>';
 
   // サーブ状況に応じてボタンを無効化
   // 自サーブ時: 相手のサーブミスは起こらない (= 我々の us_ace/us_serve_err は可能、them_ace は不可)
@@ -4393,6 +4416,15 @@ const COURT_TYPES = {
 function zoneFromCourtThem(X, Y){ return zoneFromCourt(18 - X, 9 - Y); }
 function zoneForCourtType(type, to){ return COURT_TYPES[type].side === 'us' ? zoneFromCourtThem(to.X, to.Y) : zoneFromCourt(to.X, to.Y); }
 function usesCourt(type){ return (state.courtLevel|0) >= 1 && !!COURT_TYPES[type]; }
+// 点＋反応（レベル2）では「被スパイク失点」と「ディグミス」、「被エース」と「レシーブミス」を1つのボタンにまとめる。
+// 反応した人が1人ならその人のディグミス／レシーブミス、2人以上か「誰も動けず」なら被スパイク失点／被エースとして記録する
+function mergedLostMode(){ return (state.courtLevel|0) >= 2; }
+const MERGED_ERR_OF = { them_kill: 'us_dig_err', them_ace: 'us_recv_err' };
+function courtModalTitle(type){
+  if (mergedLostMode() && type === 'them_kill') return '被スパイク失点／ディグミス';
+  if (mergedLostMode() && type === 'them_ace') return '被サービスエース／レシーブミス';
+  return POINT_TYPES[type].label;
+}
 function courtOrient(){
   if (!isLandscapeMode()) return 'v';
   return state.courtSide === 'right' ? 'hr' : 'hl';
@@ -4457,7 +4489,7 @@ function openCourtModal(type){
          player: (pendingRecord && pendingRecord.player) || null, needPlayer: !!POINT_TYPES[type].needPlayer };
   // ディグミス・レシーブミスは選んだ選手を「反応した人」に最初から入れておく
   if (ct.player) ct.react.add(ct.player);
-  document.getElementById('ctTitle').textContent = POINT_TYPES[type].label;
+  document.getElementById('ctTitle').textContent = courtModalTitle(type);
   renderCourtModal();
   document.getElementById('modal-court').classList.add('active');
 }
@@ -4539,7 +4571,7 @@ function renderCourtPanel(){
   }
   if (needReact) {
     const cands = defenseCandidates();
-    react = `<span class="ct-lab">反応した人</span>` +
+    react = `<span class="ct-lab">${mergedLostMode() && !ct.needPlayer ? '触った・反応した人' : '反応した人'}</span>` +
       cands.map(p => `<button class="ct-chip ${ct.react.has(p.name)?'sel':''}" onclick="ctToggleReact('${escapeAttr(p.name)}')">${escapeHtml(p.short || p.name)}</button>`).join('') +
       (allowNone ? `<button class="ct-chip none ${ct.noReact?'sel':''}" onclick="ctToggleNoReact()">誰も動けず</button>` : '');
   }
@@ -4597,6 +4629,11 @@ function ctConfirm(){
   if (!ct || !ct.from || !ct.to) return;
   const lvl = state.courtLevel|0;
   if (ct.needPlayer) pendingRecord.player = ct.player || null;
+  // 統合ボタン: 反応が1人ならその人のミスとして記録（個人スタッツに載る）。2人以上・誰も動けずは被スパイク失点／被エースのまま
+  if (mergedLostMode() && MERGED_ERR_OF[ct.type] && ct.react.size === 1 && !ct.noReact) {
+    pendingRecord.type = MERGED_ERR_OF[ct.type];
+    pendingRecord.player = [...ct.react][0];
+  }
   pendingRecord.zone = zoneForCourtType(ct.type, ct.to);
   pendingRecord.court = { from:{ x:ct.from.X, y:ct.from.Y }, to:{ x:ct.to.X, y:ct.to.Y }, power: ct.power || null };
   if (lvl >= 2 && COURT_TYPES[ct.type].side === 'them') { pendingRecord.court.react = [...ct.react]; pendingRecord.court.noReact = !!ct.noReact; }
