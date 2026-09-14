@@ -1130,6 +1130,8 @@ input[type="number"] {
 .ls-detail .rt{font-size:14px;padding:1px 7px;}
 
 .ls-rate{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;height:100%;}
+.ls-strip.rate .lab{line-height:1.15;text-align:center;min-width:52px;}
+.ls-strip.rate button{flex:1 1 0;min-width:0;padding:0;font-size:clamp(16px,3.2vh,26px);height:100%;}
 .ls-rate button{font-family:inherit;font-weight:800;border:2px solid var(--black);
   background:var(--paper);cursor:pointer;font-size:clamp(17px,3.6vh,30px);line-height:1;padding:0;}
 .ls-rate button:active{background:var(--yellow);}
@@ -2870,20 +2872,27 @@ const LS_SCORE_BTNS = [
   { type:'us_kill',       t:'スパイク決定',   s:'選手+ゾーン', cls:'us', deepS:'選手＋点' },
   { type:'us_ace',        t:'エース',         s:'ゾーン',     cls:'us', deepS:'点で記録' },
   { type:'us_block',      t:'ブロック決定',   s:'選手',       cls:'us' },
-  { type:'spike_attempt', t:'継続',           s:'選手・点なし', cls:'ghost' },
+  { type:'spike_attempt', t:'スパイク',       s:'つながれた・点なし', cls:'ghost' },
 ];
 // 失点を点で記録するモードでは「ディグ↑（上げた）」が加わり、「その他」が1列になる
 function lsLoseBtns(){
   const deep = (state.courtLevel|0) >= 1;
   const zoneLabel = deep ? '点で記録' : 'ゾーン';
   if (mergedLostMode()) {
-    // 点＋反応: 被スパイク失点とディグミス、被エースとレシーブミスを統合（反応の選択で自動で振り分け）
+    // 点＋反応: 被スパイク失点とディグミス、被エースとレシーブミスを統合（反応の選択で自動で振り分け）。
+    // 行数に余裕があるので「その他」に隠していた6種とタイムも表に出す（6行）
     return [
       { type:'them_kill',     t:'被スパイク／ディグミス', s:'点＋触った人', cls:'them', hot:true, span:2 },
       { type:'us_spike_err',  t:'スパイクミス',   s:'選手',       cls:'err' },
-      { type:'them_ace',      t:'被エース／レシーブミス', s:'点＋触った人', cls:'them' },
-      { type:'__other',       t:'その他 ▸',       s:'6種＋反則',  cls:'ghost' },
+      { type:'them_ace',      t:'被エース',       s:'レシーブミス含む・点＋触った人', cls:'them' },
+      { type:'us_serve_err',  t:'サーブミス',     s:'サーバー自動', cls:'err' },
       { type:'dig_attempt',   t:'ディグ↑',        s:'上げた・点なし', cls:'ghost' },
+      { type:'us_cover_err',  t:'カバーミス',     s:'選手',       cls:'err' },
+      { type:'us_toss_err',   t:'トスミス',       s:'選手',       cls:'err' },
+      { type:'us_return_err', t:'返球ミス',       s:'選手',       cls:'err' },
+      { type:'us_other_err',  t:'その他ミス',     s:'選手',       cls:'err' },
+      { type:'us_violation',  t:'自反則',         s:'選手',       cls:'err' },
+      { type:'__timeout',     t:'タイム',         s:'自／相手',   cls:'ghost' },
     ];
   }
   return [
@@ -2902,7 +2911,7 @@ const LS_OTHER_BTNS = ['us_serve_err','us_cover_err','us_toss_err','us_return_er
 function lsBtnHtml(b){
   const disabled = ((b.type === 'us_ace' || b.type === 'us_serve_err') && state.serving !== 'us') ||
                    ((b.type === 'them_ace' || b.type === 'us_recv_err') && state.serving === 'us');
-  const onclick = b.type === '__other' ? 'openOtherModal()' : `recordPoint('${b.type}')`;
+  const onclick = b.type === '__other' ? 'openOtherModal()' : (b.type === '__timeout' ? 'recordTimeout()' : `recordPoint('${b.type}')`);
   const sub = (b.deepS && (state.courtLevel|0) >= 1) ? b.deepS : b.s;
   return `<button class="ls-btn ${b.cls}${b.hot?' hot':''}" ${disabled?'disabled':''}
     style="grid-column:span ${b.span||1};grid-row:span ${b.rspan||1};" onclick="${onclick}">
@@ -2952,13 +2961,15 @@ function renderLandscape(){
 
 function lsFirstBallHtml(){
   if (pendingFirstBall){
-    return `<div class="ls-strip"><span class="lab">1本目</span>` +
+    return `<div class="ls-strip"><span class="lab">${pendingFirstBall.kind === 'serve' ? 'サーブ評価' : 'レセプ評価'}</span>` +
       `<span class="cur">${escapeHtml(pendingFirstBall.player || '-')} ${ratingMark(pendingFirstBall.rating)}</span>` +
       `<button onclick="clearFirstBall()">やり直す</button></div>`;
   }
   if (state.serving === 'us'){
-    // サーバーは自動で分かるので、評価4つを直接置く（1タップ）
-    return '<div class="ls-rate">' +
+    // サーバーは自動で分かるので、評価4つを直接置く（1タップ）。何の評価かが分かるように見出しを付ける
+    const srvIdx = state.startingLineup[(0 + state.rotationIndex) % 6];
+    const srv = srvIdx != null ? (state.players[srvIdx].short || state.players[srvIdx].name) : '？';
+    return `<div class="ls-strip rate"><span class="lab">サーブ評価<br>${escapeHtml(srv)}</span>` +
       [3,2,1,0].map(v => `<button onclick="setServeRating(${v})">${RATING_MARKS[v]}</button>`).join('') +
       '</div>';
   }
