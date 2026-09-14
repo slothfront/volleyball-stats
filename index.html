@@ -1335,7 +1335,7 @@ input[type="number"] {
   <div class="card">
     <h2>POINTS ON COURT — HOW DEEP</h2>
     <p style="font-size:12px;color:var(--text-tertiary);margin:0 0 8px;">
-      失点した球（被スパイク・ディグミス・被エース・レシーブミス）と、自チームのスパイク決定・サービスエースをどこまで記録するか。試合中も ⋯メニュー／調整から変えられます。
+      失点した球（被スパイク・ディグミス・被エース・レシーブミス）と、自チームのスパイク決定・サービスエースをどこまで記録するか。試合中も ⋯メニュー／調整から変えられます。上の「詳細を記録する」（1本目の評価・セッター）とは独立した設定です。
     </p>
     <div class="level-grid" id="courtLevelBtns"></div>
     <div id="courtSideWrap" style="margin-top:12px; display:none;">
@@ -1669,7 +1669,7 @@ input[type="number"] {
       <option value="5">R6: P1の選手がP2(右前)</option>
     </select>
 
-    <h4 style="margin:12px 0 6px;font-size:14px;">失点の記録の深さ</h4>
+    <h4 style="margin:12px 0 6px;font-size:14px;">点の記録の深さ（コート図）</h4>
     <select id="adjustCourtLevel" style="width:100%;padding:10px;border:1px solid #d1d1d6;border-radius:8px;font-size:15px;">
       <option value="0">ゾーン（9面から選ぶ）</option>
       <option value="1">点（打点→落下点・強打/軟打）</option>
@@ -2900,7 +2900,8 @@ function lsLoseBtns(){
 const LS_OTHER_BTNS = ['us_serve_err','us_cover_err','us_toss_err','us_return_err','us_other_err','us_violation'];
 
 function lsBtnHtml(b){
-  const disabled = (b.type === 'us_ace' || b.type === 'us_serve_err') && state.serving !== 'us';
+  const disabled = ((b.type === 'us_ace' || b.type === 'us_serve_err') && state.serving !== 'us') ||
+                   ((b.type === 'them_ace' || b.type === 'us_recv_err') && state.serving === 'us');
   const onclick = b.type === '__other' ? 'openOtherModal()' : `recordPoint('${b.type}')`;
   const sub = (b.deepS && (state.courtLevel|0) >= 1) ? b.deepS : b.s;
   return `<button class="ls-btn ${b.cls}${b.hot?' hot':''}" ${disabled?'disabled':''}
@@ -3821,9 +3822,14 @@ function getFilteredRallies() {
   return getAllRallies();
 }
 
+// 得点が動いたラリーだけ（タイムアウトと継続記録＝スパイク試行・ディグ↑を除く）
+function scoringRallies(rallies) {
+  return rallies.filter(r => r.type !== 'timeout' && POINT_TYPES[r.type] && POINT_TYPES[r.type].side !== 'none');
+}
+
 function renderSummary(rallies) {
-  // タイムアウトは集計から除外
-  const pointRallies = rallies.filter(r => r.type !== 'timeout');
+  // タイムアウト・継続記録は集計から除外（継続記録を入れると総ラリー数とSO%/PS%の分母が膨らむ）
+  const pointRallies = scoringRallies(rallies);
   const total = pointRallies.length;
   const usPoints = pointRallies.filter(r => POINT_TYPES[r.type] && POINT_TYPES[r.type].side === 'us').length;
   const themPoints = pointRallies.filter(r => POINT_TYPES[r.type] && POINT_TYPES[r.type].side === 'them').length;
@@ -4082,7 +4088,7 @@ function renderIndividual(rallies) {
 
 function renderRotation(rallies) {
   // タイムアウト除外
-  const pointRallies = rallies.filter(r => r.type !== 'timeout');
+  const pointRallies = scoringRallies(rallies);  // 継続記録はローテ別SO%/PS%の分母に入れない
   // ローテ別 SO%/PS%/被エース等
   const rows = [];
   for (let r = 1; r <= 6; r++) {
@@ -4344,7 +4350,7 @@ function downloadCSV(rows, filename) {
 const COURT_LEVELS = [
   { n:0, t:'ゾーン',   s:'9面から選ぶ（従来どおり）' },
   { n:1, t:'点',       s:'コート図で 打点→落下点 をタップ（失点は強打／軟打も）。自チームの決定球も「どこから打ってどこに決まったか」。ゾーンは自動で決まる' },
-  { n:2, t:'点＋反応', s:'失点にはさらに「誰が反応したか」（複数可）／「誰も動けず」を記録。守備範囲の分配を見る用' },
+  { n:2, t:'点＋反応', s:'失点にはさらに「触った・反応した人」（複数可）／「誰も動けず」を記録。被スパイクとディグミス、被エースとレシーブミスは1つのボタンになり、反応が1人ならその人のミスとして自動で振り分ける' },
 ];
 function renderCourtLevelBtns(){
   const el = document.getElementById('courtLevelBtns');
@@ -4392,7 +4398,10 @@ function courtBadge(r){
   if (!r || !r.court) return '';
   let b = r.court.power === 'hard' ? ' 強' : (r.court.power === 'soft' ? ' 軟' : '');
   if (r.court.noReact) b += ' 無反応';
-  else if (r.court.react && r.court.react.length) b += ' →' + r.court.react.join('・');
+  else if (r.court.react && r.court.react.length) {
+    const others = r.court.react.filter(n => n !== r.player);
+    if (others.length) b += ' →' + others.join('・');
+  }
   return b;
 }
 
