@@ -1050,7 +1050,8 @@ input[type="number"] {
 /* ================= 横持ちレイアウト ================= */
 #recordLandscape{display:none;}
 @media (orientation:landscape) and (min-width:640px) and (pointer:coarse){
-  html,body{overflow:hidden;height:100%;}
+  /* 画面全体の固定は記録画面が出ているときだけ（集計・セットアップは普通にスクロールできる） */
+  html.rec-active, html.rec-active body{overflow:hidden;height:100%;}
   #screen-record.active > .topbar,
   #screen-record.active > div:not(#recordLandscape){display:none!important;}
   #recordLandscape{display:grid;grid-template-rows:auto minmax(0,1fr);
@@ -1172,6 +1173,9 @@ input[type="number"] {
 .ct-head h3{margin:0;flex:1;font-size:15px;}
 .ct-step{font-size:12px;font-weight:800;color:var(--red);}
 .ct-flip{display:none;font-family:inherit;font-weight:800;border:2px solid var(--black);background:var(--paper);padding:4px 10px;cursor:pointer;font-size:13px;}
+.ct-body{display:flex;flex-direction:column;min-height:0;}
+.ct-side{display:none;}
+.ct-head-actions{display:none;}
 .ct-svgwrap{background:var(--paper);border:3px solid var(--black);min-height:0;flex:0 0 auto;display:flex;justify-content:center;}
 .ct-svgwrap svg{display:block;width:100%;height:min(46vh,520px);height:min(46dvh,520px);touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;}
 .ct-panel{display:flex;flex-direction:column;gap:6px;}
@@ -1179,6 +1183,8 @@ input[type="number"] {
 .ct-lab{font-size:11px;font-weight:800;color:var(--text-secondary);flex:0 0 auto;min-width:64px;}
 .ct-tog,.ct-chip{font-family:inherit;font-weight:800;font-size:13px;border:2px solid var(--black);background:var(--paper);color:var(--black);padding:7px 10px;cursor:pointer;min-height:38px;}
 .ct-tog.sel{background:var(--red);color:#fff;}
+.ct-pow{display:contents;}
+.ct-tog .short{display:none;}
 .ct-chip.sel{background:var(--blue);color:#fff;}
 .ct-chip.none.sel{background:var(--black);color:#fff;}
 .ct-actions{display:flex;gap:6px;margin-top:2px;}
@@ -1215,13 +1221,27 @@ input[type="number"] {
 @media (orientation:landscape) and (min-width:640px) and (pointer:coarse){
   .modal-overlay:has(.modal-court){padding:5px;}
   .modal-court{max-width:none;width:100%;height:calc(100vh - 10px);height:calc(100dvh - 10px);max-height:none;padding:6px 8px;gap:4px;overflow:hidden;}
-  .modal-court .ct-svgwrap{flex:1 1 auto;min-height:0;}
-  .modal-court .ct-panel{flex:0 0 auto;flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px 14px;}
-  .modal-court .ct-actions{margin-left:auto;flex:0 0 auto;gap:8px;}
-  .modal-court .ct-actions .btn{flex:0 0 auto;min-width:110px;}
-  .modal-court .ct-note{flex-basis:100%;margin:-2px 0 0;}
-  .modal-court .ct-lab{min-width:0;}
+  /* 横持ち: 図を真ん中いっぱいに、ボタンは左右の両端に */
+  .modal-court .ct-body{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px;}
+  .modal-court .ct-side{display:flex;flex-direction:column;gap:4px;min-height:0;overflow-y:auto;width:clamp(88px,14vw,150px);}
+  .modal-court .ct-side:empty{width:0;}
+  .modal-court .ct-side .ct-lab{min-width:0;font-size:10px;margin-top:2px;flex:0 0 auto;}
+  .modal-court .ct-side{gap:3px;}
+  .modal-court .ct-side .ct-chip,.modal-court .ct-side .ct-tog{width:100%;flex:1 1 0;min-height:22px;padding:1px 3px;font-size:clamp(12px,2.2vw,15px);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .modal-court .ct-side .ct-pow{display:grid;grid-template-columns:1fr 1fr;gap:3px;flex:1 1 0;min-height:22px;}
+  .modal-court .ct-side .ct-pow .ct-tog{min-height:0;height:100%;}
+  .modal-court .ct-side .ct-tog .full{display:none;}
+  .modal-court .ct-side .ct-tog .short{display:inline;}
+  .modal-court .ct-side .ct-lab{font-size:9px;margin-top:0;}
+  /* 確定・やり直す・キャンセルは見出し行（小さい画面でも列があふれない） */
+  .modal-court .ct-head-actions{display:flex;gap:6px;flex:0 0 auto;}
+  .modal-court .ct-head-actions .btn{padding:5px 12px;font-size:13px;min-height:36px;}
+  .modal-court .ct-head-actions .btn.success{min-width:104px;font-size:15px;}
+  .modal-court .ct-head .ct-step{font-size:11px;line-height:1.2;}
+  .modal-court .ct-svgwrap{min-height:0;height:100%;}
   .modal-court .ct-svgwrap svg{height:100%;width:100%;}
+  .modal-court .ct-panel{display:none;}
   .ct-flip{display:inline-block;}
   .ct-tog,.ct-chip{padding:5px 10px;min-height:34px;font-size:12px;}
   .ct-actions .btn{padding:8px 10px;}
@@ -1563,9 +1583,14 @@ input[type="number"] {
     <div class="ct-head">
       <h3 id="ctTitle">被スパイク失点</h3>
       <span class="ct-step" id="ctStep"></span>
+      <div class="ct-head-actions" id="ctHeadActions"></div>
       <button class="ct-flip" onclick="flipCourtSide()" title="自コートの左右を入れ替え">⇄ 左右</button>
     </div>
-    <div class="ct-svgwrap" id="ctSvgWrap"></div>
+    <div class="ct-body">
+      <div class="ct-side" id="ctLeft"></div>
+      <div class="ct-svgwrap" id="ctSvgWrap"></div>
+      <div class="ct-side" id="ctRight"></div>
+    </div>
     <div class="ct-panel" id="ctPanel"></div>
   </div>
 </div>
@@ -2220,6 +2245,9 @@ function deleteCurrentPreset() {
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  // 横持ちの記録画面だけ画面全体を固定する（他の画面はスクロールできるように）
+  document.documentElement.classList.toggle('rec-active', id === 'screen-record');
+  if (id !== 'screen-record') window.scrollTo(0, 0);
 }
 function goHome() { renderHome(); showScreen('screen-home'); }
 function goSetup() {
@@ -4350,7 +4378,8 @@ function courtBadge(r){
 // コート外（アウト・サーブ位置）も記録できるように周囲に余白をとる
 // 表示の向きは3通り: 'v'＝縦持ち（相手が上・自分が下）／'hl'＝横持ちで自コートが左／'hr'＝自コートが右
 //   横持ちは「ベンチに座って見た向き」＝画面の下がベンチ側。自コートの左右は state.courtSide（セットごとに入れ替わる）
-const COURT_PAD_X = 3, COURT_PAD_Y = 2;
+const COURT_PAD_X = 3, COURT_PAD_Y = 2;   // 縦持ち・集計の点図
+function padsFor(o){ return o === 'v' ? { px: COURT_PAD_X, py: COURT_PAD_Y } : { px: 3, py: 1.2 }; }  // 横持ちは上下を詰めてコートを大きく
 // side:'them'＝相手の球（打点は相手側・落下点は自側）／side:'us'＝自チームの決定球（打点は自側・落下点は相手側）
 const COURT_TYPES = {
   'them_kill':   { side:'them', from:'どこから打たれたか', to:'どこに落ちたか', power:true,  cls:'spike' },
@@ -4372,17 +4401,20 @@ function courtOrient(){
 //   'hl': 自コート左＝ネットに向かって右へ進む＝自分の左が画面上・右（ベンチ側）が下
 //   'hr': 自コート右＝ネットに向かって左へ進む＝自分の左が画面下（ベンチ側）
 function courtToSvg(o, X, Y){
-  if (o === 'v')  return { x: Y + COURT_PAD_Y,        y: (18 - X) + COURT_PAD_X };
-  if (o === 'hl') return { x: X + COURT_PAD_X,        y: Y + COURT_PAD_Y };
-  return               { x: (18 - X) + COURT_PAD_X, y: (9 - Y) + COURT_PAD_Y };
+  const { px, py } = padsFor(o);
+  if (o === 'v')  return { x: Y + py,        y: (18 - X) + px };
+  if (o === 'hl') return { x: X + px,        y: Y + py };
+  return               { x: (18 - X) + px, y: (9 - Y) + py };
 }
 function svgToCourt(o, x, y){
-  if (o === 'v')  return { X: 18 - (y - COURT_PAD_X), Y: x - COURT_PAD_Y };
-  if (o === 'hl') return { X: x - COURT_PAD_X,        Y: y - COURT_PAD_Y };
-  return               { X: 18 - (x - COURT_PAD_X), Y: 9 - (y - COURT_PAD_Y) };
+  const { px, py } = padsFor(o);
+  if (o === 'v')  return { X: 18 - (y - px), Y: x - py };
+  if (o === 'hl') return { X: x - px,        Y: y - py };
+  return               { X: 18 - (x - px), Y: 9 - (y - py) };
 }
 function courtViewSize(o){
-  return o === 'v' ? { w: 9 + 2*COURT_PAD_Y, h: 18 + 2*COURT_PAD_X } : { w: 18 + 2*COURT_PAD_X, h: 9 + 2*COURT_PAD_Y };
+  const { px, py } = padsFor(o);
+  return o === 'v' ? { w: 9 + 2*py, h: 18 + 2*px } : { w: 18 + 2*px, h: 9 + 2*py };
 }
 // 自コートの落下点(m) → 9ゾーン。コート外は最寄りのゾーンに寄せる（生の座標は court に残る）
 // 並びは zoneLayoutFor('us') と同じ: 後衛[5,6,1]／中間[7,8,9]／前衛[4,3,2]（左→右＝ネットに向かって左→右）
@@ -4413,7 +4445,7 @@ function courtSvgFrame(o, inner, id){
     g += text(18-X, 9-Y, zoneFromCourt(X,Y), 'ct-zn');
   }
   g += text(4.5, 4.5, '自', 'ct-lab-svg') + text(13.5, 4.5, '相手', 'ct-lab-svg');
-  if (o !== 'v') g += `<text x="${f(sz.w/2)}" y="${f(sz.h-0.55)}" class="ct-bench">▼ ベンチ側</text>`;
+  if (o !== 'v') g += `<text x="${f(sz.w/2)}" y="${f(sz.h-0.18)}" class="ct-bench" style="font-size:.5px;">▼ ベンチ側</text>`;
   else g += `<text x="${f(sz.w/2)}" y="${f(sz.h-0.55)}" class="ct-bench">▼ 自エンドライン</text>`;
   return `<svg id="${id}" viewBox="0 0 ${sz.w} ${sz.h}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">${g}${inner}</svg>`;
 }
@@ -4490,34 +4522,51 @@ function defenseCandidates(){
 function renderCourtPanel(){
   const spec = COURT_TYPES[ct.type];
   const lvl = state.courtLevel|0;
-  let h = '';
+  const needReact = lvl >= 2 && spec.side === 'them';
+  // 「誰も動けず」は被スパイク失点・被エースだけ。ディグミス・レシーブミスは触った人がいる記録なので出さない
+  const allowNone = needReact && !ct.needPlayer;
+  const ready = !!(ct.from && ct.to && (!ct.needPlayer || ct.player) && (!needReact || ct.react.size > 0 || ct.noReact));
+  let who = '', power = '', react = '';
   if (ct.needPlayer) {
     const cands = playerCandidatesFor(ct.type);
-    h += `<div class="ct-row"><span class="ct-lab">誰が</span>` +
-      cands.map(p => `<button class="ct-chip who ${ct.player===p.name?'sel':''}" onclick="ctPickPlayer('${escapeAttr(p.name)}')">${escapeHtml(p.short || p.name)}</button>`).join('') +
-      `</div>`;
+    who = `<span class="ct-lab">誰が</span>` +
+      cands.map(p => `<button class="ct-chip who ${ct.player===p.name?'sel':''}" onclick="ctPickPlayer('${escapeAttr(p.name)}')">${escapeHtml(p.short || p.name)}</button>`).join('');
   }
   if (spec.power) {
-    h += `<div class="ct-row"><span class="ct-lab">球質</span>
+    power = `<span class="ct-lab">球質</span><div class="ct-pow">
       <button class="ct-tog ${ct.power==='hard'?'sel':''}" onclick="ctSetPower('hard')">強打</button>
-      <button class="ct-tog ${ct.power==='soft'?'sel':''}" onclick="ctSetPower('soft')">軟打・フェイント</button></div>`;
+      <button class="ct-tog ${ct.power==='soft'?'sel':''}" onclick="ctSetPower('soft')"><span class="full">軟打・フェイント</span><span class="short">軟打</span></button></div>`;
   }
-  if (lvl >= 2 && spec.side === 'them') {
+  if (needReact) {
     const cands = defenseCandidates();
-    h += `<div class="ct-row"><span class="ct-lab">反応した人</span>` +
+    react = `<span class="ct-lab">反応した人</span>` +
       cands.map(p => `<button class="ct-chip ${ct.react.has(p.name)?'sel':''}" onclick="ctToggleReact('${escapeAttr(p.name)}')">${escapeHtml(p.short || p.name)}</button>`).join('') +
-      `<button class="ct-chip none ${ct.noReact?'sel':''}" onclick="ctToggleNoReact()">誰も動けず</button></div>`;
+      (allowNone ? `<button class="ct-chip none ${ct.noReact?'sel':''}" onclick="ctToggleNoReact()">誰も動けず</button>` : '');
   }
-  const needReact = lvl >= 2 && spec.side === 'them';
-  const ready = !!(ct.from && ct.to && (!ct.needPlayer || ct.player) && (!needReact || ct.react.size > 0 || ct.noReact));
-  h += `<div class="ct-actions">
-    <button class="btn secondary" onclick="ctCancel()">キャンセル</button>
-    <button class="btn outline" onclick="ctReset()">点をやり直す</button>
-    <button class="btn success" ${ready ? '' : 'disabled'} onclick="ctConfirm()">確定</button></div>`;
-  if (ct.from && ct.to && !ready) {
-    h += `<p class="ct-note">${ct.needPlayer && !ct.player ? '「誰が」を選ぶ' : '反応した人を選ぶ（複数可）か「誰も動けず」を押す'}と確定できます。</p>`;
+  const noteTxt = (ct.from && ct.to && !ready)
+    ? `${ct.needPlayer && !ct.player ? '「誰が」を選ぶ' : (allowNone ? '反応した人を選ぶ（複数可）か「誰も動けず」を押す' : '反応した人を選ぶ（複数可）')}と確定できます。` : '';
+  const note = noteTxt ? `<p class="ct-note">${noteTxt}</p>` : '';
+  if (noteTxt) document.getElementById('ctStep').textContent = '③ ' + noteTxt;
+  const L = document.getElementById('ctLeft'), R = document.getElementById('ctRight'), P = document.getElementById('ctPanel');
+  const HA = document.getElementById('ctHeadActions');
+  if (isLandscapeMode()) {
+    // 横持ち: 左＝誰が・球質 ／ 右＝反応した人 ／ 見出し行＝確定など。図は真ん中いっぱい
+    L.innerHTML = who + power;
+    R.innerHTML = react;
+    HA.innerHTML = `<button class="btn secondary" onclick="ctCancel()">キャンセル</button>
+      <button class="btn outline" onclick="ctReset()">やり直す</button>
+      <button class="btn success" ${ready ? '' : 'disabled'} onclick="ctConfirm()">確定</button>`;
+    P.innerHTML = '';
+  } else {
+    HA.innerHTML = '';
+    const row = h => h ? `<div class="ct-row">${h}</div>` : '';
+    L.innerHTML = ''; R.innerHTML = '';
+    P.innerHTML = row(who) + row(power) + row(react) +
+      `<div class="ct-actions">
+        <button class="btn secondary" onclick="ctCancel()">キャンセル</button>
+        <button class="btn outline" onclick="ctReset()">点をやり直す</button>
+        <button class="btn success" ${ready ? '' : 'disabled'} onclick="ctConfirm()">確定</button></div>` + note;
   }
-  document.getElementById('ctPanel').innerHTML = h;
 }
 function ctSetPower(v){ ct.power = v; renderCourtModal(); }
 // 「誰が」を選ぶ。ディグミス・レシーブミスではその人を「反応した人」にも入れる（前の選択は外す）
