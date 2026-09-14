@@ -1160,6 +1160,63 @@ input[type="number"] {
 .hz-zones button{font-family:inherit;font-weight:800;font-size:15px;border:2px solid var(--black);
   background:var(--paper);cursor:pointer;padding:11px 2px;}
 .hz-zones button:active{background:var(--yellow);}
+
+/* ================= コート図（打点→落下点を点で記録） ================= */
+.modal-court{max-width:560px;display:flex;flex-direction:column;gap:8px;padding:14px;}
+.ct-head{display:flex;align-items:center;gap:8px;}
+.ct-head h3{margin:0;flex:1;font-size:15px;}
+.ct-step{font-size:12px;font-weight:800;color:var(--red);}
+.ct-flip{display:none;font-family:inherit;font-weight:800;border:2px solid var(--black);background:var(--paper);padding:4px 10px;cursor:pointer;font-size:13px;}
+.ct-svgwrap{background:var(--paper);border:3px solid var(--black);min-height:0;display:flex;justify-content:center;}
+.ct-svgwrap svg{display:block;width:100%;height:min(52vh,560px);touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;}
+.ct-panel{display:flex;flex-direction:column;gap:6px;}
+.ct-row{display:flex;flex-wrap:wrap;gap:5px;align-items:center;}
+.ct-lab{font-size:11px;font-weight:800;color:var(--text-secondary);flex:0 0 auto;min-width:64px;}
+.ct-tog,.ct-chip{font-family:inherit;font-weight:800;font-size:13px;border:2px solid var(--black);background:var(--paper);color:var(--black);padding:8px 12px;cursor:pointer;min-height:40px;}
+.ct-tog.sel{background:var(--red);color:#fff;}
+.ct-chip.sel{background:var(--blue);color:#fff;}
+.ct-chip.none.sel{background:var(--black);color:#fff;}
+.ct-actions{display:flex;gap:6px;margin-top:2px;}
+.ct-actions .btn{flex:1;}
+.ct-note{font-size:11px;color:var(--text-tertiary);margin:0;line-height:1.5;}
+.ct-us{fill:#e6eeff;} .ct-them{fill:#fbe7e7;}
+.ct-line{fill:none;stroke:var(--black);stroke-width:.12;}
+.ct-zone{stroke:var(--black);stroke-width:.03;opacity:.35;}
+.ct-attack{stroke:var(--black);stroke-width:.08;stroke-dasharray:.3 .2;}
+.ct-net{stroke:var(--black);stroke-width:.28;}
+.ct-lab-svg{font-family:'Archivo Black',sans-serif;font-size:1.2px;fill:var(--black);opacity:.16;text-anchor:middle;dominant-baseline:central;}
+.ct-zn{font-size:.65px;fill:var(--black);opacity:.32;text-anchor:middle;dominant-baseline:central;font-weight:800;}
+.ct-bench{font-size:.62px;font-weight:800;fill:var(--black);opacity:.65;text-anchor:middle;letter-spacing:.1px;}
+.ct-shot{stroke-width:.14;fill:none;stroke-linecap:round;}
+.ct-shot.hard{stroke:var(--red);}
+.ct-shot.soft{stroke:#d97706;stroke-dasharray:.35 .25;}
+.ct-shot.serve{stroke:var(--blue);}
+.ct-from{fill:var(--paper);stroke:var(--black);stroke-width:.1;}
+.ct-to{fill:var(--red);stroke:var(--black);stroke-width:.08;}
+.ct-to.none{fill:var(--paper);stroke:var(--red);stroke-width:.14;}
+.ct-zlab{font-size:.7px;font-weight:800;fill:var(--black);text-anchor:middle;}
+.ct-chart{max-width:340px;margin:0 auto;border:3px solid var(--black);background:var(--paper);}
+.ct-chart svg{display:block;width:100%;height:auto;}
+.level-grid{display:grid;grid-template-columns:1fr;gap:6px;}
+.level-btn{font-family:inherit;text-align:left;border:3px solid var(--black);background:var(--paper);color:var(--black);padding:10px 12px;cursor:pointer;font-weight:800;font-size:14px;box-shadow:3px 3px 0 var(--black);}
+.level-btn small{display:block;font-weight:500;font-size:11px;opacity:.75;margin-top:2px;}
+.level-btn.sel{background:var(--blue);color:#fff;}
+.chk-row{display:flex;align-items:flex-start;gap:10px;font-size:13px;font-weight:500;cursor:pointer;margin:10px 0 0;text-transform:none;letter-spacing:0;color:var(--black);line-height:1.5;}
+.chk-row input{width:22px;height:22px;accent-color:var(--blue);flex:0 0 auto;margin-top:1px;}
+.server-ask{color:var(--red);text-decoration:underline;cursor:pointer;}
+@media (orientation:landscape) and (min-width:640px) and (pointer:coarse){
+  .modal-court{max-width:98vw;width:98vw;height:97vh;max-height:97vh;padding:6px 8px;gap:4px;overflow:hidden;}
+  .modal-court .ct-svgwrap{flex:1 1 auto;min-height:0;}
+  .modal-court .ct-panel{flex:0 0 auto;flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px 14px;}
+  .modal-court .ct-actions{margin-left:auto;flex:0 0 auto;gap:8px;}
+  .modal-court .ct-actions .btn{flex:0 0 auto;min-width:110px;}
+  .modal-court .ct-note{flex-basis:100%;margin:-2px 0 0;}
+  .modal-court .ct-lab{min-width:0;}
+  .modal-court .ct-svgwrap svg{height:100%;width:100%;}
+  .ct-flip{display:inline-block;}
+  .ct-tog,.ct-chip{padding:5px 10px;min-height:34px;font-size:12px;}
+  .ct-actions .btn{padding:8px 10px;}
+}
 </style>
 </head>
 <body>
@@ -1237,6 +1294,28 @@ input[type="number"] {
     <p style="font-size:12px;color:var(--text-tertiary);margin-top:8px;">
       ※ ローテ位置の慣例: P1=サーブ位置(右後)、P2=右前、P3=中央前、P4=左前、P5=左後、P6=中央後
     </p>
+    <label class="chk-row">
+      <input type="checkbox" id="lineupLater" onchange="state.lineupLater=this.checked">
+      <span><b>サーブ順は試合中に記入する</b>（スタメンの入力を省略できます。自チームのサーブになるたびに「次のサーバーは？」と聞き、6人そろえば2周目からは自動で回ります）</span>
+    </label>
+  </div>
+
+  <div class="card">
+    <h2>LOST POINTS — HOW DEEP</h2>
+    <p style="font-size:12px;color:var(--text-tertiary);margin:0 0 8px;">
+      失点した球（被スパイク・ディグミス・被エース・レシーブミス）をどこまで記録するか。試合中も ⋯メニュー／調整から変えられます。
+    </p>
+    <div class="level-grid" id="courtLevelBtns"></div>
+    <div id="courtSideWrap" style="margin-top:12px; display:none;">
+      <label>ベンチから見て自コートは</label>
+      <div class="row">
+        <button class="btn outline" id="courtSideLeft" onclick="setCourtSide('left')">左</button>
+        <button class="btn outline" id="courtSideRight" onclick="setCourtSide('right')">右</button>
+      </div>
+      <p style="font-size:12px; color:var(--ink-2,#4a3f35); margin:6px 0 0; line-height:1.5;">
+        横持ちのコート図の向きに使います（画面の下＝ベンチ側）。セットが替わると自動で入れ替わり、コート図の ⇄ でも直せます。
+      </p>
+    </div>
   </div>
 
   <div class="card">
@@ -1302,7 +1381,7 @@ input[type="number"] {
 
   <div style="padding:12px;">
     <div class="rotation-display">
-      <div class="rotation-header">
+      <div class="rotation-header" onclick="if(state.lineupLater)openServerModal()">
         ROTATION R<span id="rotationNum">1</span> · SERVER: <span class="server-name" id="serverName">-</span>
       </div>
       <div class="rotation-grid" id="rotationGrid"></div>
@@ -1367,8 +1446,9 @@ input[type="number"] {
     </div>
 
     <div class="section-label">RALLY CONTINUED (NO POINT)</div>
-    <div class="record-grid" style="grid-template-columns: 1fr;">
+    <div class="record-grid" id="continuedGrid" style="grid-template-columns: 1fr;">
       <button class="record-btn attempt" data-type="spike_attempt" onclick="recordPoint('spike_attempt')">スパイク試行<span class="sub">拾われた / 止められた / つながれた</span></button>
+      <button class="record-btn attempt" id="btnDigAttempt" data-type="dig_attempt" onclick="recordPoint('dig_attempt')" style="display:none;">ディグ↑ 上げた<span class="sub">選手のみ・点なし</span></button>
     </div>
 
     <div class="section-label">RECENT RALLIES</div>
@@ -1381,7 +1461,7 @@ input[type="number"] {
   <div id="recordLandscape">
     <div class="ls-top">
       <div class="ls-score"><b id="lsScoreUs">0</b><i>-</i><b id="lsScoreThem">0</b></div>
-      <div class="ls-meta"><span id="lsMeta"></span></div>
+      <div class="ls-meta" onclick="if(state.lineupLater)openServerModal()"><span id="lsMeta"></span></div>
       <div class="ls-top-btns">
         <button class="ls-undo" onclick="undoLast()">↶ 戻す</button>
         <button class="ls-menu" onclick="openLsMenu()">⋯</button>
@@ -1468,6 +1548,29 @@ input[type="number"] {
   </div>
 </div>
 
+<!-- ============ コート図（打点→落下点） ============ -->
+<div class="modal-overlay" id="modal-court">
+  <div class="modal modal-court">
+    <div class="ct-head">
+      <h3 id="ctTitle">被スパイク失点</h3>
+      <span class="ct-step" id="ctStep"></span>
+      <button class="ct-flip" onclick="flipCourtSide()" title="自コートの左右を入れ替え">⇄ 左右</button>
+    </div>
+    <div class="ct-svgwrap" id="ctSvgWrap"></div>
+    <div class="ct-panel" id="ctPanel"></div>
+  </div>
+</div>
+
+<!-- ============ 次のサーバー（サーブ順を試合中に記入） ============ -->
+<div class="modal-overlay" id="modal-server">
+  <div class="modal">
+    <h3>次のサーバーは？</h3>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;line-height:1.5;" id="modalServerDesc"></p>
+    <div class="player-grid" id="modalServerGrid"></div>
+    <button class="btn secondary large" style="margin-top:12px;" onclick="closeModal('modal-server')">あとで</button>
+  </div>
+</div>
+
 <!-- ============ 横持ちメニュー ============ -->
 <div class="modal-overlay" id="modal-lsmenu">
   <div class="modal">
@@ -1477,6 +1580,9 @@ input[type="number"] {
       <button class="player-btn" onclick="closeModal('modal-lsmenu');openLiberoModal()">リベロ</button>
       <button class="player-btn" onclick="closeModal('modal-lsmenu');openAdjustModal()">調整</button>
       <button class="player-btn" onclick="closeModal('modal-lsmenu');toggleSwapSides()">左右入れ替え</button>
+      <button class="player-btn" onclick="closeModal('modal-lsmenu');cycleCourtLevel()">記録の深さ</button>
+      <button class="player-btn" onclick="closeModal('modal-lsmenu');flipCourtSide()">コート左右</button>
+      <button class="player-btn" onclick="closeModal('modal-lsmenu');openServerModal()">サーバー記入</button>
       <button class="player-btn" onclick="closeModal('modal-lsmenu');overrideSetter()">セッター変更</button>
       <button class="player-btn" onclick="closeModal('modal-lsmenu');recordTimeout()">タイム</button>
       <button class="player-btn" onclick="closeModal('modal-lsmenu');endSetConfirm()">セット終了</button>
@@ -1524,6 +1630,13 @@ input[type="number"] {
       <option value="3">R4: P1の選手がP4(左前)</option>
       <option value="4">R5: P1の選手がP3(中央前)</option>
       <option value="5">R6: P1の選手がP2(右前)</option>
+    </select>
+
+    <h4 style="margin:12px 0 6px;font-size:14px;">失点の記録の深さ</h4>
+    <select id="adjustCourtLevel" style="width:100%;padding:10px;border:1px solid #d1d1d6;border-radius:8px;font-size:15px;">
+      <option value="0">ゾーン（9面から選ぶ）</option>
+      <option value="1">点（打点→落下点・強打/軟打）</option>
+      <option value="2">点＋誰が反応したか</option>
     </select>
 
     <div class="row" style="margin-top:16px;">
@@ -1692,6 +1805,9 @@ let state = {
   detailMode: false,    // 詳細記録モード(ミス・反則の種別を記録)
   defaultSetter: null,  // 既定セッターの playerIndex。詳細モードでスパイクに自動付与
   swapSides: false,     // 横持ちレイアウトの左右入れ替え(利き手に合わせる)
+  courtLevel: 0,        // 失点の記録の深さ 0=ゾーン / 1=点(打点→落下点・強打/軟打) / 2=点＋誰が反応したか
+  courtSide: 'left',    // ベンチから見て自コートが左か右か(横持ちのコート図の向き。セットごとに入れ替わる)
+  lineupLater: false,   // サーブ順を試合中に記入する(スタメン入力を省略)
 };
 
 // ---- 詳細モード: このラリー分の一時保持（点が入ったときにレコードへ合流） ----
@@ -1741,7 +1857,8 @@ const POINT_TYPES = {
   'us_return_err':{ label: '返球ミス', side: 'them', needPlayer: true,  needZone: false, liberoEligible: true },
   'us_other_err': { label: 'その他ミス', side: 'them', needPlayer: true,  needZone: false, liberoEligible: true },
   'us_violation': { label: '自反則', side: 'them', needPlayer: true,  needZone: false, liberoEligible: true, detailKey: 'violation' },
-  'spike_attempt':{ label: 'スパイク試行(継続)', side: 'none', needPlayer: true, needZone: false }
+  'spike_attempt':{ label: 'スパイク試行(継続)', side: 'none', needPlayer: true, needZone: false },
+  'dig_attempt':  { label: 'ディグ↑(上げた)', side: 'none', needPlayer: true, needZone: false, liberoEligible: true }
 };
 
 // 詳細モード時の追加選択肢
@@ -1811,6 +1928,8 @@ function toggleLibero(playerIdx, isLibero) {
 }
 
 function openAdjustModal() {
+  const lv = document.getElementById('adjustCourtLevel');
+  if (lv) lv.value = String(state.courtLevel|0);
   document.getElementById('adjustScoreUs').value = state.scoreUs;
   document.getElementById('adjustScoreThem').value = state.scoreThem;
   pendingAdjustServe = state.serving;
@@ -1834,6 +1953,8 @@ function updateAdjustServeButtons() {
 }
 
 function applyAdjustment() {
+  const lv = document.getElementById('adjustCourtLevel');
+  if (lv) state.courtLevel = parseInt(lv.value, 10) || 0;
   const newUs = parseInt(document.getElementById('adjustScoreUs').value) || 0;
   const newThem = parseInt(document.getElementById('adjustScoreThem').value) || 0;
   const newServe = pendingAdjustServe;
@@ -2111,6 +2232,9 @@ function goSetup() {
     detailMode: false,
     defaultSetter: null,
     swapSides: false,
+    courtLevel: 0,
+    courtSide: 'left',
+    lineupLater: false,
     finished: false,
     currentSetStartServe: null,
   };
@@ -2460,6 +2584,9 @@ function renderSetup() {
   renderStartingLineup();
   renderPresetSelect();
   updateFirstServeButtons();
+  const llCb = document.getElementById('lineupLater');
+  if (llCb) llCb.checked = !!state.lineupLater;
+  renderCourtLevelBtns();
 }
 
 function renderPlayerList() {
@@ -2590,7 +2717,9 @@ function startMatch() {
   state.date = document.getElementById('matchDate').value;
   state.opponent = document.getElementById('opponentName').value;
   if (!state.opponent) { alert('対戦相手を入力してください'); return; }
-  if (state.startingLineup.some(p => p === null)) { alert('スタメン6名を選択してください'); return; }
+  const llCb = document.getElementById('lineupLater');
+  state.lineupLater = !!(llCb && llCb.checked);
+  if (!state.lineupLater && state.startingLineup.some(p => p === null)) { alert('スタメン6名を選択してください（試合中に記入するなら「サーブ順は試合中に記入する」にチェック）'); return; }
   if (!state.firstServe) { alert('最初のサーブを選択してください'); return; }
   state.detailMode = document.getElementById('detailMode').checked;
   state.matchId = state.matchId || ('m_' + Date.now());
@@ -2622,6 +2751,11 @@ function recordPoint(type) {
   const pt = POINT_TYPES[type];
   pendingRecord = { type, player: null, zone: null, detail: null };
   buzz();
+  // 失点を点で記録するモード: 選手が要らないタイプはそのままコート図へ
+  if (usesCourt(type) && !pt.needPlayer) {
+    openCourtModal(type);
+    return;
+  }
   if (isLandscapeMode() && pt.needPlayer && pt.needZone) {
     openHitZoneModal(type);
     return;
@@ -2642,10 +2776,13 @@ function openPlayerModal(type) {
 
   // コート上の6人のみ (state.startingLineup に入っている選手)
   // ただしブロック決定は前衛3人のみ(P2, P3, P4)
-  const onCourtIdxs = state.startingLineup.filter(x => x !== null);
+  // スタメンが未確定（サーブ順を試合中に記入）の間は、出場登録の全員を候補にする
+  const onCourtIdxs = lineupComplete() ? state.startingLineup.filter(x => x !== null) : fieldPlayerIdxs();
 
   let candidates;
-  if (type === 'us_block') {
+  if (type === 'us_block' && !lineupComplete()) {
+    candidates = onCourtIdxs.map(idx => ({...state.players[idx], idx}));
+  } else if (type === 'us_block') {
     // 前衛 = P2, P3, P4 = ローテ後の lineup index (1 + rot) % 6, (2 + rot) % 6, (3 + rot) % 6
     // ※ rotation: P{pos}にいる選手 = startingLineup[(pos - 1 + rotationIndex) % 6]
     const frontPositions = [2, 3, 4];
@@ -2695,14 +2832,20 @@ const LS_SCORE_BTNS = [
   { type:'us_block',      t:'ブロック決定',   s:'選手',       cls:'us' },
   { type:'spike_attempt', t:'継続',           s:'選手・点なし', cls:'ghost' },
 ];
-const LS_LOSE_BTNS = [
-  { type:'us_dig_err',    t:'ディグミス',     s:'選手',       cls:'err',   hot:true, span:2 },
-  { type:'us_spike_err',  t:'スパイクミス',   s:'選手',       cls:'err' },
-  { type:'us_recv_err',   t:'レシーブミス',   s:'選手',       cls:'err' },
-  { type:'them_kill',     t:'被スパイク',     s:'ゾーン',     cls:'them' },
-  { type:'them_ace',      t:'被エース',       s:'ゾーン',     cls:'them' },
-  { type:'__other',       t:'その他 ▸',       s:'6種＋反則',  cls:'ghost', span:2 },
-];
+// 失点を点で記録するモードでは「ディグ↑（上げた）」が加わり、「その他」が1列になる
+function lsLoseBtns(){
+  const deep = (state.courtLevel|0) >= 1;
+  const zoneLabel = deep ? '点で記録' : 'ゾーン';
+  return [
+    { type:'us_dig_err',    t:'ディグミス',     s:deep ? '選手＋点' : '選手', cls:'err', hot:true, span:2 },
+    { type:'us_spike_err',  t:'スパイクミス',   s:'選手',       cls:'err' },
+    { type:'us_recv_err',   t:'レシーブミス',   s:deep ? '選手＋点' : '選手', cls:'err' },
+    { type:'them_kill',     t:'被スパイク',     s:zoneLabel,    cls:'them' },
+    { type:'them_ace',      t:'被エース',       s:zoneLabel,    cls:'them' },
+    { type:'__other',       t:'その他 ▸',       s:'6種＋反則',  cls:'ghost', span: deep ? 1 : 2 },
+    ...(deep ? [{ type:'dig_attempt', t:'ディグ↑', s:'上げた・点なし', cls:'ghost' }] : []),
+  ];
+}
 // 頻度の低いものは1階層下へ
 const LS_OTHER_BTNS = ['us_serve_err','us_cover_err','us_toss_err','us_return_err','us_other_err','us_violation'];
 
@@ -2721,12 +2864,13 @@ function renderLandscape(){
   document.getElementById('lsScoreUs').textContent = state.scoreUs;
   document.getElementById('lsScoreThem').textContent = state.scoreThem;
   const srvIdx = state.startingLineup[(0 + state.rotationIndex) % 6];
-  const srvName = srvIdx !== null ? state.players[srvIdx].name : '-';
+  const srvName = srvIdx != null ? state.players[srvIdx].name : (state.lineupLater ? '？ タップで記入' : '-');
   document.getElementById('lsMeta').innerHTML =
     `${state.opponent ? 'vs ' + escapeHtml(state.opponent) + ' · ' : ''}SET ${state.currentSet} · R${state.rotationIndex + 1}<br>` +
     `SERVE <b>${state.serving === 'us' ? escapeHtml(srvName) : '相手'}</b>`;
 
   // 左右の割り当て（設定で入れ替え可）
+  const LS_LOSE_BTNS = lsLoseBtns();
   const A = state.swapSides ? LS_LOSE_BTNS : LS_SCORE_BTNS;
   const B = state.swapSides ? LS_SCORE_BTNS : LS_LOSE_BTNS;
   // 占有セル数から必要な行数を出す（2列固定）
@@ -2834,7 +2978,7 @@ function openHitZoneModal(type){
   const pt = POINT_TYPES[type];
   document.getElementById('hzTitle').textContent = pt.label;
   document.getElementById('hzPlayerPick').textContent = '—';
-  const cands = state.startingLineup.filter(x => x !== null).map(i => ({...state.players[i], idx:i}));
+  const cands = onCourtPlayers();
   document.getElementById('hzPlayers').innerHTML = cands.map(p =>
     `<button onclick="hzPickPlayer('${escapeAttr(p.name)}',this)">${escapeHtml(p.short || p.name)}</button>`).join('');
   // 縦持ちと同じ並びを使う（上=エンドライン / 下=ネット）
@@ -2892,6 +3036,7 @@ let genericPlayerCb = null;
 let ratingCb = null;
 
 function onCourtPlayers(){
+  if (!lineupComplete()) return fieldPlayerIdxs().map(i=>({...state.players[i], idx:i}));
   return state.startingLineup
     .map((idx,i)=>({idx,i}))
     .filter(o=>o.idx!==null)
@@ -3013,7 +3158,9 @@ function selectPlayer(name) {
   pendingRecord.player = name;
   closeModal('modal-player');
   const pt = POINT_TYPES[pendingRecord.type];
-  if (pt.needZone) {
+  if (usesCourt(pendingRecord.type)) {
+    openCourtModal(pendingRecord.type);
+  } else if (pt.needZone) {
     openZoneModal(pendingRecord.type);
   } else {
     proceedToDetailOrFinalize();
@@ -3109,6 +3256,7 @@ function finalizePoint() {
     player: player || '',
     zone: zone || null,
     detail: detail || null,
+    court: pendingRecord.court ? JSON.parse(JSON.stringify(pendingRecord.court)) : undefined,
     server: state.serving === 'us' ? serverName : '',
     rotation: rotation,
     servingSide: state.serving,
@@ -3149,7 +3297,7 @@ function finalizePoint() {
   }
 
   state.currentRallies.push(rally);
-  showToast(`${pt.label}${rally.player ? ' ' + rally.player : ''}${rally.zone ? ' Z' + rally.zone : ''} — ↶で取消`);
+  showToast(`${pt.label}${rally.player ? ' ' + rally.player : ''}${rally.zone ? ' Z' + rally.zone : ''}${courtBadge(rally)} — ↶で取消`);
   // ラリーが終わったら一時保持をクリア（'none'＝継続記録では持ち越す）
   if (pt.side !== 'none') clearPendingDetail();
   saveMatch();
@@ -3318,8 +3466,19 @@ function renderRecord() {
 
   // サーバー名
   const serverIdx = state.startingLineup[(0 + state.rotationIndex) % 6];
-  const serverName = serverIdx !== null ? state.players[serverIdx].name : '-';
-  document.getElementById('serverName').textContent = state.serving === 'us' ? serverName : '相手';
+  const serverName = serverIdx != null ? state.players[serverIdx].name : (state.lineupLater ? '？ タップで記入' : '-');
+  const snEl = document.getElementById('serverName');
+  snEl.textContent = state.serving === 'us' ? serverName : '相手';
+  snEl.classList.toggle('server-ask', state.serving === 'us' && serverIdx == null && !!state.lineupLater);
+
+  // 失点を点で記録するモードでは「ディグ↑（上げた）」ボタンを出す
+  const dg = document.getElementById('btnDigAttempt');
+  const cg = document.getElementById('continuedGrid');
+  if (dg && cg) {
+    const deep = (state.courtLevel|0) >= 1;
+    dg.style.display = deep ? '' : 'none';
+    cg.style.gridTemplateColumns = deep ? '1fr 1fr' : '1fr';
+  }
 
   // サーブ状況に応じてボタンを無効化
   // 自サーブ時: 相手のサーブミスは起こらない (= 我々の us_ace/us_serve_err は可能、them_ace は不可)
@@ -3361,12 +3520,13 @@ function renderRecord() {
             ${escapeHtml(r.typeLabel)}
             ${r.detail ? '【' + escapeHtml(r.detail) + '】' : ''}
             ${r.player ? '/ ' + escapeHtml(r.player) : ''}
-            ${r.zone ? '/ Z' + r.zone : ''}
+            ${r.zone ? '/ Z' + r.zone : ''}${escapeHtml(courtBadge(r))}
           </span>
         </div>
       `;
     }).join('');
   }
+  maybePromptServer();
 }
 
 // ============ セット終了/試合終了 ============
@@ -3415,6 +3575,17 @@ function confirmEndSet() {
   state.serving = choice ? defaultSwap : (defaultSwap === 'us' ? 'them' : 'us');
   // この新セットの開始時サーブ権を記録(undoLast/recomputeRotationFromRallies で使用)
   state.currentSetStartServe = state.serving;
+
+  // コートチェンジ: ベンチから見た自コートの左右が入れ替わる（横持ちのコート図の向き）
+  state.courtSide = state.courtSide === 'right' ? 'left' : 'right';
+  // サーブ順を試合中に記入する運用なら、次セットも記入し直すか聞く（セットごとに並びを変えることが多い）
+  if (state.lineupLater && confirm(
+    `第${state.currentSet}セットのサーブ順を試合中に記入し直しますか?\n\n` +
+    `OK = 記入し直す(並びを空にして、サーブのたびに聞く)\n` +
+    `キャンセル = 前セットと同じ並びで続ける`)) {
+    state.startingLineup = [null, null, null, null, null, null];
+  }
+  serverPromptShownFor = null;
 
   saveMatch();
   goRecord();
@@ -3467,6 +3638,7 @@ function renderFinishScreen() {
 let currentStatsTab = 'summary';
 let heatmapType = 'them_ace';
 let heatmapRotFilter = 'all';
+let heatmapView = 'zone'; // 'zone'=9面 / 'points'=点図(打点→落下点)
 
 function renderStats() {
   // 念のため重複セットをクリーンアップ(過去バグの自己修復)
@@ -3682,8 +3854,9 @@ function renderHeatmap(rallies) {
   const rotations = ['all', 1, 2, 3, 4, 5, 6];
 
   // 現在のローテフィルタ条件
+  // ディグミス→被スパイク失点、レシーブミス→被エース として同じ図に載せる（effectiveType）
   const filtered = rallies.filter(r => {
-    if (r.type !== heatmapType) return false;
+    if (effectiveType(r) !== heatmapType) return false;
     if (heatmapRotFilter !== 'all' && r.rotation !== heatmapRotFilter) return false;
     return true;
   });
@@ -3695,6 +3868,8 @@ function renderHeatmap(rallies) {
   const max = Math.max(...Object.values(zoneCounts), 1);
 
   const ptInfo = POINT_TYPES[heatmapType];
+  const hasCourt = rallies.some(r => r.court && r.court.from && r.court.to);
+  const showPoints = hasCourt && heatmapView === 'points';
   // どちらのコートも「ネット=下、エンドライン=上」に統一
   const zones = ptInfo.zoneCourt === 'us'
     ? [[5,6,1],[7,8,9],[4,3,2]]
@@ -3712,7 +3887,12 @@ function renderHeatmap(rallies) {
         <span style="font-size:12px;align-self:center;color:var(--text-secondary);">ローテ:</span>
         ${rotations.map(r => `<button class="${heatmapRotFilter==r?'active':''}" onclick="setHeatmapRot('${r}')">${r === 'all' ? 'ALL' : 'R'+r}</button>`).join('')}
       </div>
-      ${topHTML}
+      ${hasCourt ? `<div class="heatmap-controls">
+        <span style="font-size:12px;align-self:center;color:var(--text-secondary);">表示:</span>
+        <button class="${heatmapView==='zone'?'active':''}" onclick="setHeatmapView('zone')">9ゾーン</button>
+        <button class="${heatmapView==='points'?'active':''}" onclick="setHeatmapView('points')">点図</button>
+      </div>` : ''}
+      ${showPoints ? renderCourtChart(filtered) : `${topHTML}
       <div class="heatmap-grid">
         ${zones.flat().map(z => {
           const c = zoneCounts[z];
@@ -3738,7 +3918,7 @@ function renderHeatmap(rallies) {
           </div>`;
         }).join('')}
       </div>
-      ${bottomHTML}
+      ${bottomHTML}`}
       <p style="font-size:12px;color:var(--text-secondary);text-align:center;margin-top:12px;">
         合計: ${filtered.length}件 ${heatmapRotFilter !== 'all' ? '(R' + heatmapRotFilter + 'のみ)' : ''}
       </p>
@@ -3747,6 +3927,7 @@ function renderHeatmap(rallies) {
 }
 
 function setHeatmapType(t) { heatmapType = t; switchStatsTab('heatmap'); }
+function setHeatmapView(v) { heatmapView = v; switchStatsTab('heatmap'); }
 function setHeatmapRot(r) { heatmapRotFilter = r === 'all' ? 'all' : parseInt(r); switchStatsTab('heatmap'); }
 
 function renderIndividual(rallies) {
@@ -3872,7 +4053,10 @@ function renderDetailStats() {
   const withFB = rallies.filter(r => r.firstBall);
   const withSetter = rallies.filter(r => r.setter);
   const withChance = rallies.filter(r => r.chance && r.chance.length);
-  if (!withFB.length && !withSetter.length && !withChance.length) { el.innerHTML = ''; return; }
+  const digs = rallies.filter(r => r.type === 'dig_attempt');
+  const withReact = rallies.filter(r => r.court && (r.court.noReact || (r.court.react && r.court.react.length)));
+  const withPower = rallies.filter(r => r.court && r.court.power);
+  if (!withFB.length && !withSetter.length && !withChance.length && !digs.length && !withReact.length && !withPower.length) { el.innerHTML = ''; return; }
 
   // 集計器: name -> {n, sum, cnt[0..3]}
   const agg = () => ({});
@@ -3902,7 +4086,7 @@ function renderDetailStats() {
     }).join('');
     return `<div class="card"><h2>${title}</h2>
       <p style="font-size:12px;color:var(--text-tertiary);margin:0 0 8px;">${sub}</p>
-      <div style="overflow-x:auto;"><table class="stats-table"><thead><tr>
+      <div style="overflow-x:auto;"><table class="stat-table"><thead><tr>
       <th>選手</th><th>本数</th><th>評価</th><th>◎の数</th><th>×</th><th>内訳</th></tr></thead>
       <tbody>${rows}
       <tr style="font-weight:800;border-top:2px solid var(--black);">
@@ -3931,17 +4115,44 @@ function renderDetailStats() {
     setterHtml = `<div class="card"><h2>上げたトス（セッター別）</h2>
       <p style="font-size:12px;color:var(--text-tertiary);margin:0 0 8px;">
         そのセッターのトスから打たれた本数。効率＝(決定−ミス)÷本数。</p>
-      <div style="overflow-x:auto;"><table class="stats-table"><thead><tr>
+      <div style="overflow-x:auto;"><table class="stat-table"><thead><tr>
       <th>セッター</th><th>上げた本数</th><th>決定</th><th>ミス</th><th>決定率</th><th>効率</th>
       </tr></thead><tbody>${rows}</tbody></table></div></div>`;
   }
 
+  // 守備: 上げた（ディグ↑）と、失点した球に反応した回数
+  let defHtml = '';
+  if (digs.length || withReact.length || withPower.length) {
+    const m = {};
+    const g = n => { if (!m[n]) m[n] = { up:0, lost:0 }; return m[n]; };
+    digs.forEach(r => { if (r.player) g(r.player).up++; });
+    withReact.forEach(r => (r.court.react || []).forEach(n => g(n).lost++));
+    const none = withReact.filter(r => r.court.noReact).length;
+    const hard = withPower.filter(r => r.court.power === 'hard').length;
+    const soft = withPower.filter(r => r.court.power === 'soft').length;
+    const names = Object.keys(m).sort((a,b) => (m[b].up+m[b].lost) - (m[a].up+m[a].lost));
+    const rows = names.map(n => {
+      const d = m[n], t = d.up + d.lost;
+      return `<tr><td>${escapeHtml(n)}</td><td>${d.up}</td><td>${d.lost}</td><td>${t ? (d.up/t*100).toFixed(0)+'%' : '-'}</td></tr>`;
+    }).join('');
+    defHtml = `<div class="card"><h2>守備（ディグ）</h2>
+      <p style="font-size:12px;color:var(--text-tertiary);margin:0 0 8px;line-height:1.5;">
+        上げた＝「ディグ↑」の記録数。反応して失点＝失点した球に反応した回数（複数人なら全員に数える）。
+        上げた率＝上げた÷（上げた＋反応して失点）。</p>
+      ${names.length ? `<div style="overflow-x:auto;"><table class="stat-table"><thead><tr>
+        <th>選手</th><th>上げた</th><th>反応して失点</th><th>上げた率</th></tr></thead><tbody>${rows}</tbody></table></div>` : ''}
+      <p style="font-size:12px;color:var(--text-secondary);margin:10px 0 0;line-height:1.6;">
+        誰も動けなかった失点: <b>${none}</b>本 ／ 反応の記録がある失点: ${withReact.length}本<br>
+        失点した球の球質: 強打 <b>${hard}</b> ／ 軟打・フェイント <b>${soft}</b>
+      </p></div>`;
+  }
+
   el.innerHTML =
-    '<div class="section-label" style="margin-top:18px;">詳細記録（1本目の評価・セッター）</div>' +
+    '<div class="section-label" style="margin-top:18px;">詳細記録（1本目の評価・セッター・守備）</div>' +
     tbl('サーブ', '自チームのサーブ。◎＝相手を大きく崩した／×＝サーブミス。', serve) +
     tbl('レセプション', '相手サーブの1本目。◎＝そのままトスに入れた／×＝ミス。', recv) +
     tbl('チャンスボール処理', '相手が返してきた球の処理。レセプションと見くらべる。', chance) +
-    setterHtml;
+    setterHtml + defHtml;
 }
 
 // ============ CSV エクスポート ============
@@ -3950,6 +4161,7 @@ function exportRallyCSV() {
   const rows = [
     ['set', 'rally_no', 'type', 'type_label', 'detail', 'player', 'zone', 'rotation', 'serving_side', 'server',
      'first_ball_kind', 'first_ball_player', 'first_ball_rating', 'chance', 'setter',
+     'from_x', 'from_y', 'to_x', 'to_y', 'power', 'react',
      'score_us', 'score_them', 'timestamp']
   ];
   rallies.forEach((r, i) => {
@@ -3961,6 +4173,12 @@ function exportRallyCSV() {
       (r.firstBall && r.firstBall.rating !== null && r.firstBall.rating !== undefined) ? r.firstBall.rating : '',
       (r.chance && r.chance.length) ? r.chance.map(c => `${c.player}:${c.rating}`).join('|') : '',
       r.setter || '',
+      (r.court && r.court.from) ? r.court.from.x : '',
+      (r.court && r.court.from) ? r.court.from.y : '',
+      (r.court && r.court.to) ? r.court.to.x : '',
+      (r.court && r.court.to) ? r.court.to.y : '',
+      (r.court && r.court.power) ? r.court.power : '',
+      r.court ? (r.court.noReact ? 'none' : (r.court.react || []).join('|')) : '',
       r.scoreUsAfter, r.scoreThemAfter,
       new Date(r.ts).toISOString()
     ]);
@@ -4048,6 +4266,321 @@ function downloadCSV(rows, filename) {
   const a = document.createElement('a');
   a.href = url; a.download = filename; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ============ 失点の記録の深さ（ゾーン／点／点＋反応） ============
+const COURT_LEVELS = [
+  { n:0, t:'ゾーン',   s:'9面から選ぶ（従来どおり）' },
+  { n:1, t:'点',       s:'コート図で 打点→落下点 をタップ。強打／軟打も記録。ゾーンは自動で決まる' },
+  { n:2, t:'点＋反応', s:'さらに「誰が反応したか」（複数可）／「誰も動けず」を記録。守備範囲の分配を見る用' },
+];
+function renderCourtLevelBtns(){
+  const el = document.getElementById('courtLevelBtns');
+  if (!el) return;
+  const cur = state.courtLevel|0;
+  el.innerHTML = COURT_LEVELS.map(l =>
+    `<button class="level-btn ${cur===l.n?'sel':''}" onclick="setCourtLevel(${l.n})">${l.t}<small>${l.s}</small></button>`).join('');
+  const wrap = document.getElementById('courtSideWrap');
+  if (wrap) wrap.style.display = cur >= 1 ? '' : 'none';
+  updateCourtSideButtons();
+}
+function setCourtLevel(n){
+  state.courtLevel = n|0;
+  renderCourtLevelBtns();
+  if (state.matchId) saveMatch();
+}
+function cycleCourtLevel(){
+  state.courtLevel = ((state.courtLevel|0) + 1) % 3;
+  saveMatch();
+  renderRecord();
+  const l = COURT_LEVELS[state.courtLevel];
+  showToast(`失点の記録: ${l.t}（${l.s}）`);
+}
+function setCourtSide(side){
+  state.courtSide = side === 'right' ? 'right' : 'left';
+  updateCourtSideButtons();
+  if (state.matchId) saveMatch();
+}
+function updateCourtSideButtons(){
+  const l = document.getElementById('courtSideLeft'), r = document.getElementById('courtSideRight');
+  if (!l || !r) return;
+  const right = state.courtSide === 'right';
+  l.classList.toggle('outline', right);  l.classList.toggle('success', !right);
+  r.classList.toggle('outline', !right); r.classList.toggle('success', right);
+}
+function flipCourtSide(){
+  state.courtSide = state.courtSide === 'right' ? 'left' : 'right';
+  if (state.matchId) saveMatch();
+  updateCourtSideButtons();
+  if (ct) { ct.o = courtOrient(); renderCourtModal(); }
+  showToast(`自コートを${state.courtSide === 'right' ? '右' : '左'}にしました（横持ちのコート図）`);
+}
+// ログ・トースト用の短い印（強打／軟打・反応）
+function courtBadge(r){
+  if (!r || !r.court) return '';
+  let b = r.court.power === 'hard' ? ' 強' : (r.court.power === 'soft' ? ' 軟' : '');
+  if (r.court.noReact) b += ' 無反応';
+  else if (r.court.react && r.court.react.length) b += ' →' + r.court.react.join('・');
+  return b;
+}
+
+// ============ コート図で記録（打点→落下点・強打/軟打・誰が反応したか） ============
+// 座標系（m）: X＝自エンドライン0 → ネット9 → 相手エンドライン18 ／ Y＝ネットに向かって左0 → 右9
+// コート外（アウト・サーブ位置）も記録できるように周囲に余白をとる
+// 表示の向きは3通り: 'v'＝縦持ち（相手が上・自分が下）／'hl'＝横持ちで自コートが左／'hr'＝自コートが右
+//   横持ちは「ベンチに座って見た向き」＝画面の下がベンチ側。自コートの左右は state.courtSide（セットごとに入れ替わる）
+const COURT_PAD_X = 3, COURT_PAD_Y = 2;
+const COURT_TYPES = {
+  'them_kill':   { from:'どこから打たれたか', to:'どこに落ちたか', power:true,  cls:'spike' },
+  'us_dig_err':  { from:'どこから打たれたか', to:'どこに落ちたか', power:true,  cls:'spike' },
+  'them_ace':    { from:'どこからサーブされたか', to:'どこに落ちたか', power:false, cls:'serve' },
+  'us_recv_err': { from:'どこからサーブされたか', to:'どこに落ちたか', power:false, cls:'serve' },
+};
+function usesCourt(type){ return (state.courtLevel|0) >= 1 && !!COURT_TYPES[type]; }
+function courtOrient(){
+  if (!isLandscapeMode()) return 'v';
+  return state.courtSide === 'right' ? 'hr' : 'hl';
+}
+// コート座標(m) → SVG座標。'v': 自エンドラインが下・自分の左が画面左
+//   'hl': 自コート左＝ネットに向かって右へ進む＝自分の左が画面上・右（ベンチ側）が下
+//   'hr': 自コート右＝ネットに向かって左へ進む＝自分の左が画面下（ベンチ側）
+function courtToSvg(o, X, Y){
+  if (o === 'v')  return { x: Y + COURT_PAD_Y,        y: (18 - X) + COURT_PAD_X };
+  if (o === 'hl') return { x: X + COURT_PAD_X,        y: Y + COURT_PAD_Y };
+  return               { x: (18 - X) + COURT_PAD_X, y: (9 - Y) + COURT_PAD_Y };
+}
+function svgToCourt(o, x, y){
+  if (o === 'v')  return { X: 18 - (y - COURT_PAD_X), Y: x - COURT_PAD_Y };
+  if (o === 'hl') return { X: x - COURT_PAD_X,        Y: y - COURT_PAD_Y };
+  return               { X: 18 - (x - COURT_PAD_X), Y: 9 - (y - COURT_PAD_Y) };
+}
+function courtViewSize(o){
+  return o === 'v' ? { w: 9 + 2*COURT_PAD_Y, h: 18 + 2*COURT_PAD_X } : { w: 18 + 2*COURT_PAD_X, h: 9 + 2*COURT_PAD_Y };
+}
+// 自コートの落下点(m) → 9ゾーン。コート外は最寄りのゾーンに寄せる（生の座標は court に残る）
+// 並びは zoneLayoutFor('us') と同じ: 後衛[5,6,1]／中間[7,8,9]／前衛[4,3,2]（左→右＝ネットに向かって左→右）
+function zoneFromCourt(X, Y){
+  const cx = Math.min(8.999, Math.max(0, X)), cy = Math.min(8.999, Math.max(0, Y));
+  const col = Math.floor(cy / 3), row = cx < 3 ? 0 : (cx < 6 ? 1 : 2);
+  return [[5,6,1],[7,8,9],[4,3,2]][row][col];
+}
+// コートの下絵。inner に打点・落下点などを重ねる
+function courtSvgFrame(o, inner, id){
+  const P = (X,Y) => courtToSvg(o, X, Y);
+  const f = v => Math.round(v*100)/100;
+  const poly = (pts, cls) => `<polygon points="${pts.map(p => `${f(p.x)},${f(p.y)}`).join(' ')}" class="${cls}"/>`;
+  const rect = (X1,Y1,X2,Y2,cls) => poly([P(X1,Y1),P(X2,Y1),P(X2,Y2),P(X1,Y2)], cls);
+  const line = (X1,Y1,X2,Y2,cls) => { const a=P(X1,Y1), b=P(X2,Y2); return `<line x1="${f(a.x)}" y1="${f(a.y)}" x2="${f(b.x)}" y2="${f(b.y)}" class="${cls}"/>`; };
+  const text = (X,Y,t,cls) => { const p=P(X,Y); return `<text x="${f(p.x)}" y="${f(p.y)}" class="${cls}">${t}</text>`; };
+  const sz = courtViewSize(o);
+  let g = `<rect x="0" y="0" width="${sz.w}" height="${sz.h}" fill="var(--paper)"/>`;
+  g += rect(0,0,9,9,'ct-us') + rect(9,0,18,9,'ct-them');
+  for (const X of [3,6,12,15]) g += line(X,0,X,9,'ct-zone');
+  for (const Y of [3,6]) g += line(0,Y,18,Y,'ct-zone');
+  g += line(6,0,6,9,'ct-attack') + line(12,0,12,9,'ct-attack');
+  g += rect(0,0,9,9,'ct-line') + rect(9,0,18,9,'ct-line');
+  g += line(9,-0.7,9,9.7,'ct-net');
+  // ゾーン番号（薄く）: 自コートは zoneFromCourt、相手コートは相手から見た番号
+  for (const X of [1.5,4.5,7.5]) for (const Y of [1.5,4.5,7.5]) {
+    g += text(X, Y, zoneFromCourt(X,Y), 'ct-zn');
+    g += text(18-X, 9-Y, zoneFromCourt(X,Y), 'ct-zn');
+  }
+  g += text(4.5, 4.5, '自', 'ct-lab-svg') + text(13.5, 4.5, '相手', 'ct-lab-svg');
+  if (o !== 'v') g += `<text x="${f(sz.w/2)}" y="${f(sz.h-0.55)}" class="ct-bench">▼ ベンチ側</text>`;
+  else g += `<text x="${f(sz.w/2)}" y="${f(sz.h-0.55)}" class="ct-bench">▼ 自エンドライン</text>`;
+  return `<svg id="${id}" viewBox="0 0 ${sz.w} ${sz.h}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">${g}${inner}</svg>`;
+}
+
+let ct = null; // 記録中: { type, from:{X,Y}, to:{X,Y}, power, react:Set, noReact, o }
+function openCourtModal(type){
+  const spec = COURT_TYPES[type];
+  ct = { type, from:null, to:null, power: spec.power ? 'hard' : null, react:new Set(), noReact:false, o: courtOrient() };
+  // ディグミス・レシーブミスは選んだ選手を「反応した人」に最初から入れておく
+  if (pendingRecord && pendingRecord.player) ct.react.add(pendingRecord.player);
+  document.getElementById('ctTitle').textContent = POINT_TYPES[type].label;
+  renderCourtModal();
+  document.getElementById('modal-court').classList.add('active');
+}
+function courtNotice(msg){
+  const el = document.getElementById('ctStep');
+  if (el) { el.textContent = msg; }
+  showToast(msg);
+}
+function renderCourtModal(){
+  if (!ct) return;
+  const spec = COURT_TYPES[ct.type];
+  const o = ct.o;
+  document.getElementById('ctStep').textContent =
+    !ct.from ? `① ${spec.from} をタップ` : (!ct.to ? `② ${spec.to} をタップ（コート外もOK）` : '③ 下で確定（落下点はタップで置き直せる）');
+  const P = (X,Y) => courtToSvg(o, X, Y);
+  const f = v => Math.round(v*100)/100;
+  let inner = '';
+  if (ct.from) {
+    const a = P(ct.from.X, ct.from.Y);
+    inner += `<circle cx="${f(a.x)}" cy="${f(a.y)}" r=".38" class="ct-from"/>`;
+  }
+  if (ct.from && ct.to) {
+    const a = P(ct.from.X, ct.from.Y), b = P(ct.to.X, ct.to.Y);
+    inner += `<line x1="${f(a.x)}" y1="${f(a.y)}" x2="${f(b.x)}" y2="${f(b.y)}" class="ct-shot ${spec.power ? ct.power : 'serve'}"/>`;
+    inner += `<circle cx="${f(b.x)}" cy="${f(b.y)}" r=".42" class="ct-to ${ct.noReact ? 'none' : ''}"/>`;
+    inner += `<text x="${f(b.x)}" y="${f(b.y - 0.75)}" class="ct-zlab">Z${zoneFromCourt(ct.to.X, ct.to.Y)}</text>`;
+  }
+  const wrap = document.getElementById('ctSvgWrap');
+  wrap.innerHTML = courtSvgFrame(o, inner, 'ctSvg');
+  document.getElementById('ctSvg').addEventListener('click', onCourtTap);
+  renderCourtPanel();
+}
+function onCourtTap(e){
+  if (!ct) return;
+  const svg = e.currentTarget;
+  const m = svg.getScreenCTM();
+  if (!m) return;
+  const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+  const p = pt.matrixTransform(m.inverse());
+  const c = svgToCourt(ct.o, p.x, p.y);
+  const X = Math.round(c.X*10)/10, Y = Math.round(c.Y*10)/10;
+  if (!ct.from) {
+    if (X <= 9) { courtNotice('①は相手コート側（ネットの向こう）をタップしてください'); return; }
+    ct.from = { X, Y };
+  } else {
+    if (X > 9) { courtNotice('②は自コート側をタップしてください（コート外もOK）'); return; }
+    ct.to = { X, Y };
+  }
+  buzz();
+  renderCourtModal();
+}
+function defenseCandidates(){
+  // コート上の6人＋リベロ（スタメン未確定なら出場登録の全員）
+  const items = onCourtPlayers();
+  const libs = state.players.map((p,i) => ({...p, idx:i}))
+    .filter(p => p.active && p.libero && p.name && !items.some(x => x.idx === p.idx));
+  return items.concat(libs);
+}
+function renderCourtPanel(){
+  const spec = COURT_TYPES[ct.type];
+  const lvl = state.courtLevel|0;
+  let h = '';
+  if (spec.power) {
+    h += `<div class="ct-row"><span class="ct-lab">球質</span>
+      <button class="ct-tog ${ct.power==='hard'?'sel':''}" onclick="ctSetPower('hard')">強打</button>
+      <button class="ct-tog ${ct.power==='soft'?'sel':''}" onclick="ctSetPower('soft')">軟打・フェイント</button></div>`;
+  }
+  if (lvl >= 2) {
+    const cands = defenseCandidates();
+    h += `<div class="ct-row"><span class="ct-lab">反応した人</span>` +
+      cands.map(p => `<button class="ct-chip ${ct.react.has(p.name)?'sel':''}" onclick="ctToggleReact('${escapeAttr(p.name)}')">${escapeHtml(p.short || p.name)}</button>`).join('') +
+      `<button class="ct-chip none ${ct.noReact?'sel':''}" onclick="ctToggleNoReact()">誰も動けず</button></div>`;
+  }
+  const ready = !!(ct.from && ct.to && (lvl < 2 || ct.react.size > 0 || ct.noReact));
+  h += `<div class="ct-actions">
+    <button class="btn secondary" onclick="ctCancel()">キャンセル</button>
+    <button class="btn outline" onclick="ctReset()">点をやり直す</button>
+    <button class="btn success" ${ready ? '' : 'disabled'} onclick="ctConfirm()">確定</button></div>`;
+  if (lvl >= 2 && ct.from && ct.to && !ready) h += `<p class="ct-note">反応した人を選ぶ（複数可）か「誰も動けず」を押すと確定できます。</p>`;
+  document.getElementById('ctPanel').innerHTML = h;
+}
+function ctSetPower(v){ ct.power = v; renderCourtModal(); }
+function ctToggleReact(name){
+  if (ct.react.has(name)) ct.react.delete(name); else ct.react.add(name);
+  ct.noReact = false;
+  renderCourtModal();
+}
+function ctToggleNoReact(){ ct.noReact = !ct.noReact; if (ct.noReact) ct.react.clear(); renderCourtModal(); }
+function ctReset(){ ct.from = null; ct.to = null; renderCourtModal(); }
+function ctCancel(){ ct = null; closeModal('modal-court'); pendingRecord = null; }
+function ctConfirm(){
+  if (!ct || !ct.from || !ct.to) return;
+  const lvl = state.courtLevel|0;
+  pendingRecord.zone = zoneFromCourt(ct.to.X, ct.to.Y);
+  pendingRecord.court = { from:{ x:ct.from.X, y:ct.from.Y }, to:{ x:ct.to.X, y:ct.to.Y }, power: ct.power || null };
+  if (lvl >= 2) { pendingRecord.court.react = [...ct.react]; pendingRecord.court.noReact = !!ct.noReact; }
+  ct = null;
+  closeModal('modal-court');
+  proceedToDetailOrFinalize();
+}
+
+// 集計: 点図（打点→落下点の線）。縦向き固定（相手が上・自分が下）
+function renderCourtChart(list){
+  const o = 'v';
+  const P = (X,Y) => courtToSvg(o, X, Y);
+  const f = v => Math.round(v*100)/100;
+  const withC = list.filter(r => r.court && r.court.from && r.court.to);
+  let inner = '';
+  withC.forEach(r => {
+    const c = r.court, a = P(c.from.x, c.from.y), b = P(c.to.x, c.to.y);
+    const cls = c.power === 'hard' ? 'hard' : (c.power === 'soft' ? 'soft' : 'serve');
+    inner += `<line x1="${f(a.x)}" y1="${f(a.y)}" x2="${f(b.x)}" y2="${f(b.y)}" class="ct-shot ${cls}" opacity=".8"/>`;
+  });
+  withC.forEach(r => {
+    const c = r.court, b = P(c.to.x, c.to.y);
+    inner += `<circle cx="${f(b.x)}" cy="${f(b.y)}" r=".34" class="ct-to ${c.noReact ? 'none' : ''}"/>`;
+  });
+  const nHard = withC.filter(r => r.court.power === 'hard').length;
+  const nSoft = withC.filter(r => r.court.power === 'soft').length;
+  const nServe = withC.filter(r => !r.court.power).length;
+  const nNone = withC.filter(r => r.court.noReact).length;
+  const rc = {};
+  withC.forEach(r => (r.court.react || []).forEach(n => { rc[n] = (rc[n] || 0) + 1; }));
+  const rcTxt = Object.keys(rc).sort((a,b) => rc[b]-rc[a]).map(n => `${escapeHtml(n)} ${rc[n]}`).join('、');
+  return `<div class="ct-chart">${courtSvgFrame(o, inner, 'chartSvg')}</div>
+    <p style="font-size:11px;color:var(--text-secondary);text-align:center;margin:8px 0 0;line-height:1.6;">
+      赤の実線＝強打 ${nHard} ／ 橙の破線＝軟打・フェイント ${nSoft} ／ 青＝サーブ ${nServe}<br>
+      白抜きの落下点＝誰も動けなかった失点 ${nNone}${rcTxt ? '<br>反応した人: ' + rcTxt : ''}<br>
+      点の記録がある ${withC.length}件（ゾーンだけの記録は「9ゾーン」で見る）
+    </p>`;
+}
+
+// ============ サーブ順を試合中に記入（スタメン入力の省略） ============
+// 自チームのサーブになるたびに「次のサーバーは？」と聞き、startingLineup の該当スロットを埋める。
+// startingLineup[k] は「k回目のサイドアウト後にサーブする人」＝ローテ計算はそのまま使える。
+function lineupComplete(){
+  return Array.isArray(state.startingLineup) && state.startingLineup.length === 6 &&
+    state.startingLineup.every(v => v !== null && v !== undefined);
+}
+function fieldPlayerIdxs(){
+  return state.players.map((p,i) => ({p,i})).filter(o => o.p.active && o.p.name && !o.p.libero).map(o => o.i);
+}
+function currentServerSlot(){ return (0 + state.rotationIndex) % 6; }
+function serverUnknown(){ return state.serving === 'us' && state.startingLineup[currentServerSlot()] == null; }
+let serverPromptShownFor = null; // 同じ場面で何度も開かない（「あとで」を尊重）
+function maybePromptServer(){
+  if (!state.lineupLater || !serverUnknown()) return;
+  if (document.querySelector('.modal-overlay.active')) return;
+  const key = `${state.currentSet}-${state.rotationIndex}-${state.scoreUs}-${state.scoreThem}`;
+  if (serverPromptShownFor === key) return;
+  serverPromptShownFor = key;
+  openServerModal();
+}
+function openServerModal(){
+  const slot = currentServerSlot();
+  const used = new Set(state.startingLineup.filter((v,i) => v != null && i !== slot));
+  const cands = fieldPlayerIdxs().filter(i => !used.has(i)).map(i => ({...state.players[i], idx:i}));
+  const filled = state.startingLineup.filter(v => v != null).length;
+  const cur = state.startingLineup[slot];
+  document.getElementById('modalServerDesc').innerHTML =
+    `R${state.rotationIndex + 1} のサーバーを選んでください（${filled}/6人 記入済み${cur != null ? '・現在 ' + escapeHtml(state.players[cur].name) : ''}）。<br>` +
+    `<span style="font-size:11px;color:var(--text-tertiary);">6人そろえば2周目からは自動で回ります。残り1人になったら自動で埋めます。</span>`;
+  document.getElementById('modalServerGrid').innerHTML = cands.length ? cands.map(p => `
+    <button class="player-btn" onclick="pickServer(${p.idx})">${escapeHtml(p.short || p.name)}${p.number ? '<span class="num">#' + escapeHtml(p.number) + '</span>' : ''}</button>`).join('')
+    : '<p style="grid-column:1/-1;text-align:center;color:var(--text-tertiary);padding:16px;">候補がいません（出場登録・リベロ設定を確認）</p>';
+  document.getElementById('modal-server').classList.add('active');
+}
+function pickServer(idx){
+  const slot = currentServerSlot();
+  state.startingLineup[slot] = idx;
+  // 残り1枠・候補1人なら自動で埋める
+  const empty = state.startingLineup.map((v,i) => v == null ? i : -1).filter(i => i >= 0);
+  const used = new Set(state.startingLineup.filter(v => v != null));
+  const rest = fieldPlayerIdxs().filter(i => !used.has(i));
+  let msg = `R${state.rotationIndex + 1} サーバー: ${state.players[idx].name}`;
+  if (empty.length === 1 && rest.length === 1) {
+    state.startingLineup[empty[0]] = rest[0];
+    msg += ` ／ ${state.players[rest[0]].name} を残りの位置へ`;
+  }
+  closeModal('modal-server');
+  saveMatch();
+  renderRecord();
+  showToast(lineupComplete() ? msg + '（6人そろいました。以降は自動）' : msg);
 }
 
 // ============ 保存 / バックアップ ============
