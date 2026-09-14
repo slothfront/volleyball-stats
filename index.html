@@ -1234,6 +1234,29 @@ input[type="number"] {
 .ct-to.bt{stroke:var(--black);stroke-width:.2;}
 .ct-zlab{font-size:.7px;font-weight:800;fill:var(--black);text-anchor:middle;}
 .ct-chart{max-width:340px;margin:0 auto;border:3px solid var(--black);background:var(--paper);}
+/* TO図 */
+.modal-to{max-width:720px;display:flex;flex-direction:column;gap:8px;padding:12px;}
+.to-filters{display:flex;gap:4px;flex:1 1 auto;justify-content:center;}
+.to-filters button{font-family:inherit;font-weight:800;font-size:12px;border:2px solid var(--black);background:var(--paper);padding:4px 10px;cursor:pointer;}
+.to-filters button.active{background:var(--red);color:#fff;}
+.to-close{display:inline-block!important;}
+.to-body{display:grid;grid-template-columns:1fr 1fr;gap:8px;min-height:0;}
+.to-court{border:3px solid var(--black);background:var(--paper);min-height:0;display:flex;flex-direction:column;}
+.to-court .ttl{font-size:11px;font-weight:800;text-align:center;padding:3px;border-bottom:2px solid var(--black);}
+.to-court .ttl.us{background:#dcefe0;} .to-court .ttl.them{background:#f8dede;}
+.to-court svg{display:block;width:100%;height:auto;flex:1 1 auto;min-height:0;}
+.to-table{grid-column:1/-1;font-size:12px;}
+.to-table table{width:100%;border-collapse:collapse;}
+.to-table th,.to-table td{border-bottom:1px solid #ccc;padding:3px 4px;text-align:right;white-space:nowrap;}
+.to-table th:first-child,.to-table td:first-child{text-align:left;}
+.to-note{font-size:10px;color:var(--text-tertiary);text-align:center;padding:2px;}
+@media (orientation:landscape) and (min-width:640px) and (pointer:coarse){
+  .modal-overlay:has(.modal-to){padding:5px;}
+  .modal-to{max-width:none;width:100%;height:calc(100vh - 10px);height:calc(100dvh - 10px);max-height:none;padding:6px 8px;gap:4px;overflow:hidden;}
+  .to-body{flex:1 1 auto;grid-template-columns:1fr 1fr minmax(200px,auto);}
+  .to-court svg{height:100%;}
+  .to-table{grid-column:auto;overflow-y:auto;min-height:0;}
+}
 .ct-chart svg{display:block;width:100%;height:auto;}
 .level-grid{display:grid;grid-template-columns:1fr;gap:6px;}
 .level-btn{font-family:inherit;text-align:left;border:3px solid var(--black);background:var(--paper);color:var(--black);padding:10px 12px;cursor:pointer;font-weight:800;font-size:14px;box-shadow:3px 3px 0 var(--black);}
@@ -1361,6 +1384,10 @@ input[type="number"] {
       失点した球（被スパイク・ディグミス・被エース・レシーブミス）と、自チームのスパイク決定・サービスエースをどこまで記録するか。試合中も ⋯メニュー／調整から変えられます。上の「詳細を記録する」（1本目の評価・セッター）とは独立した設定です。
     </p>
     <div class="level-grid" id="courtLevelBtns"></div>
+    <label class="chk-row" id="autoConfirmWrap" style="display:none;">
+      <input type="checkbox" id="autoConfirm" onchange="state.autoConfirm=this.checked">
+      <span><b>コート図は最後のタップで自動確定</b>（確定ボタンを押さない。間違えたら ↶ 戻す。点＋反応の失点だけは反応を選んでから確定）</span>
+    </label>
     <div id="courtSideWrap" style="margin-top:12px; display:none;">
       <label>ベンチから見て自コートは</label>
       <div class="row">
@@ -1383,6 +1410,13 @@ input[type="number"] {
 
   <div class="card">
     <h2>RECORD MODE</h2>
+    <div class="row" style="margin-bottom:8px;">
+      <button class="btn outline" onclick="applyModePreset('live')">ライブ用（マネージャー）</button>
+      <button class="btn outline" onclick="applyModePreset('video')">映像分析用</button>
+    </div>
+    <p style="font-size:12px;color:var(--text-tertiary);margin:0 0 12px;line-height:1.5;">
+      ライブ用＝点（打点→落下点）・自動確定・詳細OFF／映像分析用＝点＋反応・確定ボタン・詳細ON。押したあと個別に変えられます。
+    </p>
     <label style="display:flex; align-items:center; gap:10px; font-size:15px; font-weight:500; cursor:pointer; margin:0; text-transform:none; letter-spacing:0; color:var(--black);">
       <input type="checkbox" id="detailMode" onchange="renderDefaultSetterSelect()" style="width:22px; height:22px; accent-color:var(--blue);">
       詳細を記録する（ミス内訳・反則種別・1本目の評価・セッター）
@@ -1444,6 +1478,7 @@ input[type="number"] {
         <button class="btn small outline" onclick="quickToggleServe()" title="サーブ権だけ切り替え">⇄ サーブ権切替</button>
         <button class="btn small outline" onclick="quickRotate(-1)" title="ローテを1つ戻す">↶ ローテ-1</button>
         <button class="btn small outline" onclick="quickRotate(1)" title="ローテを1つ進める">↷ ローテ+1</button>
+        <button class="btn small" onclick="openToView()" title="決めた位置・決められた位置・スパイク効果率">TO図</button>
       </div>
     </div>
 
@@ -1455,7 +1490,7 @@ input[type="number"] {
         <span class="detail-btns" id="dbFirstBtns"></span>
       </div>
       <div class="detail-row">
-        <span class="detail-key">返球（相手→自）</span>
+        <span class="detail-key">チャンスで返した</span>
         <span class="detail-val" id="dbChanceVal">なし</span>
         <span class="detail-btns" id="dbExchangeBtns"></span>
       </div>
@@ -1520,6 +1555,7 @@ input[type="number"] {
       <div class="ls-score"><b id="lsScoreUs">0</b><i>-</i><b id="lsScoreThem">0</b></div>
       <div class="ls-meta" onclick="openServerModal()"><span id="lsMeta"></span></div>
       <div class="ls-top-btns">
+        <button class="ls-menu" onclick="openToView()">TO図</button>
         <button class="ls-undo" onclick="undoLast()">↶ 戻す</button>
         <button class="ls-menu" onclick="openLsMenu()">⋯</button>
       </div>
@@ -1624,6 +1660,18 @@ input[type="number"] {
   </div>
 </div>
 
+<!-- ============ TO図（決めた位置／決められた位置＋スパイク効果率） ============ -->
+<div class="modal-overlay" id="modal-toview">
+  <div class="modal modal-to">
+    <div class="ct-head">
+      <h3>TO図</h3>
+      <div class="to-filters" id="toFilters"></div>
+      <button class="ct-flip to-close" onclick="closeModal('modal-toview')">閉じる</button>
+    </div>
+    <div class="to-body" id="toBody"></div>
+  </div>
+</div>
+
 <!-- ============ 次のサーバー（サーブ順を試合中に記入） ============ -->
 <div class="modal-overlay" id="modal-server">
   <div class="modal">
@@ -1644,6 +1692,8 @@ input[type="number"] {
       <button class="player-btn" onclick="closeModal('modal-lsmenu');openAdjustModal()">調整</button>
       <button class="player-btn" onclick="closeModal('modal-lsmenu');toggleSwapSides()">左右入れ替え</button>
       <button class="player-btn" onclick="closeModal('modal-lsmenu');cycleCourtLevel()">記録の深さ</button>
+      <button class="player-btn" onclick="closeModal('modal-lsmenu');toggleAutoConfirm()">自動確定 ON/OFF</button>
+      <button class="player-btn" onclick="closeModal('modal-lsmenu');openToView()">TO図</button>
       <button class="player-btn" onclick="closeModal('modal-lsmenu');flipCourtSide()">コート左右</button>
       <button class="player-btn" onclick="closeModal('modal-lsmenu');openServerModal()">サーバー記入</button>
       <button class="player-btn" onclick="closeModal('modal-lsmenu');overrideSetter()">セッター変更</button>
@@ -1890,6 +1940,7 @@ let state = {
   courtLevel: 0,        // 失点の記録の深さ 0=ゾーン / 1=点(打点→落下点・強打/軟打) / 2=点＋誰が反応したか
   courtSide: 'left',    // ベンチから見て自コートが左か右か(横持ちのコート図の向き。セットごとに入れ替わる)
   lineupLater: false,   // サーブ順を試合中に記入する(スタメン入力を省略)
+  autoConfirm: true,    // コート図は最後のタップで自動確定（反応の複数選択が要る深さ2の失点だけ手で確定）
 };
 
 // ---- 詳細モード: このラリー分の一時保持（点が入ったときにレコードへ合流） ----
@@ -1900,10 +1951,10 @@ const EX_LABEL = { spike:'スパイク', chance:'チャンス' };
 function exchangeText(list){ return list.length ? list.map(e => `${EX_LABEL[e.in]}→${EX_LABEL[e.out]}`).join('、') : 'なし'; }
 function addExchange(i, o){ pendingExchange.push({ in:i, out:o }); buzz(); renderDetailBar(); }
 function clearExchanges(){ pendingExchange = []; renderDetailBar(); }
+// 覚えることを1つにする: 「チャンスボールをチャンスで返してしまった」ときだけ押す（ディグ以外の来た球はチャンス扱い）
 function exchangeButtonsHtml(cls){
-  const cnt = (i,o) => pendingExchange.filter(e => e.in===i && e.out===o).length;
-  const b = (i,o,t) => `<button class="${cls}" onclick="addExchange('${i}','${o}')">${t}${cnt(i,o) ? ` <b>${cnt(i,o)}</b>` : ''}</button>`;
-  return b('chance','spike','チャ→スパ') + b('chance','chance','チャ→チャ') + b('spike','spike','スパ→スパ') + b('spike','chance','スパ→チャ');
+  const n = pendingExchange.filter(e => e.in==='chance' && e.out==='chance').length;
+  return `<button class="${cls}" onclick="addExchange('chance','chance')">チャンスで返した${n ? ` <b>${n}</b>` : ''}</button>`;
 }
 let pendingSetterOverride = null; // このラリーだけセッターを差し替える場合の名前
 const RATING_MARKS = ['×', '△', '○', '◎'];   // index = rating(0-3)
@@ -2339,6 +2390,7 @@ function goSetup() {
     courtLevel: 0,
     courtSide: 'left',
     lineupLater: false,
+    autoConfirm: true,
     finished: false,
     currentSetStartServe: null,
   };
@@ -2853,6 +2905,12 @@ function startMatch() {
   if (!state.opponent) { alert('対戦相手を入力してください'); return; }
   const llCb = document.getElementById('lineupLater');
   state.lineupLater = !!(llCb && llCb.checked);
+  const acCb = document.getElementById('autoConfirm');
+  if (acCb) state.autoConfirm = acCb.checked;
+  // 同じ名前の選手が複数いると集計が混ざる（保存ロスターの重複行など）
+  const actNames = state.players.filter(p => p.active && p.name).map(p => p.name);
+  const dups = [...new Set(actNames.filter((n, i) => actNames.indexOf(n) !== i))];
+  if (dups.length) { alert(`同じ名前の選手が複数います: ${dups.join('、')}\n出場のチェックを外すか、名前を変えてください`); return; }
   if (!state.lineupLater && state.startingLineup.some(p => p === null)) { alert('スタメン6名を選択してください（試合中に記入するなら「サーブ順は試合中に記入する」にチェック）'); return; }
   if (!state.firstServe) { alert('最初のサーブを選択してください'); return; }
   state.detailMode = document.getElementById('detailMode').checked;
@@ -3119,7 +3177,7 @@ function lsFirstBallHtml(){
 
 // 返球の強度: 相手からの球（スパイク／チャンス）を、こちらは何で返したか（スパイク／チャンス）
 function lsChanceHtml(){
-  return `<div class="ls-strip ex"><span class="lab">返球<br><small>相手→自</small></span>` +
+  return `<div class="ls-strip ex"><span class="lab">チャンスを<br><small>攻めずに返した</small></span>` +
     exchangeButtonsHtml('') +
     (pendingExchange.length ? `<button class="clr" onclick="clearExchanges()">消</button>` : '') + `</div>`;
 }
@@ -3134,8 +3192,13 @@ function renderLsDetail(){
   const el = document.getElementById('lsDetail');
   if (!el) return;
   if (!state.detailMode){
-    el.innerHTML = '<div style="font-size:10px;color:var(--text-tertiary);line-height:1.6;">' +
-      '詳細モードOFF<br>1本目の評価・返球の強度・セッターは記録しません。</div>';
+    // 詳細モードOFF: 直近3本を見せる（押し間違いに気づけるように）
+    const recent = (state.currentRallies || []).filter(r => r.type !== 'timeout').slice(-3).reverse();
+    el.innerHTML = `<div class="r"><span class="k">直近の記録</span></div>` +
+      (recent.length ? recent.map(r => `<div class="r"><span class="v" style="font-size:11px;font-weight:700;">` +
+        `${r.scoreUsAfter}-${r.scoreThemAfter} ${escapeHtml(r.typeLabel)}${r.player ? ' ' + escapeHtml(r.player) : ''}${r.zone ? ' Z' + r.zone : ''}${escapeHtml(courtBadge(r))}</span></div>`).join('')
+        : '<div style="font-size:10px;color:var(--text-tertiary);">まだ記録なし</div>') +
+      '<div style="font-size:9px;color:var(--text-tertiary);margin-top:4px;line-height:1.4;">詳細モードOFF（1本目・チャンス・セッターは記録しない）</div>';
     return;
   }
   const sname = currentSetterName();
@@ -3525,9 +3588,21 @@ function undoLast() {
     alert('戻せるラリーがありません');
     return;
   }
-  if (!confirm('直前のラリーを取り消します')) return;
+  const peek = state.currentRallies[state.currentRallies.length - 1];
+  const peekPt = POINT_TYPES[peek.type];
+  const what = peek.type === 'timeout' ? 'タイムアウト'
+    : `${peek.typeLabel || peek.type}${peek.player ? ' ' + peek.player : ''}${peek.zone ? ' Z' + peek.zone : ''}` + (peekPt && peekPt.side === 'none' ? '（継続記録・点は動かない）' : '');
+  if (!confirm(`直前の1記録を取り消します:\n${what}`)) return;
   const last = state.currentRallies.pop();
-  clearPendingDetail();
+  // 点の記録を取り消したときは、そのラリーに合流していた1本目・チャンス返しを入力中の状態に戻す（打ち直しで再入力しなくてよい）
+  // 継続記録（拾われた等）の取り消しでは入力中の状態に触らない
+  if (last.type !== 'timeout' && POINT_TYPES[last.type] && POINT_TYPES[last.type].side !== 'none') {
+    pendingFirstBall = last.firstBall ? { ...last.firstBall } : null;
+    pendingExchange = last.exchange ? last.exchange.map(e => ({ ...e })) : [];
+    pendingChance = last.chance ? last.chance.map(c => ({ ...c })) : [];
+    pendingSetterOverride = null;
+  }
+  showToast(`取り消し: ${what}`);
   // タイムアウトの場合はスコア変動なし
   if (last.type === 'timeout') {
     saveMatch();
@@ -4403,7 +4478,7 @@ function renderDetailStats() {
     const row = (i, lab) => { const n = c[i].spike + c[i].chance; return `<tr><td>${lab}</td><td>${n}</td><td>${c[i].spike}</td><td>${c[i].chance}</td><td>${n ? (c[i].spike/n*100).toFixed(0)+'%' : '-'}</td></tr>`; };
     exHtml = `<div class="card"><h2>返球の強度</h2>
       <p style="font-size:12px;color:var(--text-tertiary);margin:0 0 8px;line-height:1.5;">
-        相手から来た球（チャンス／スパイク）を、こちらは何で返したか。「スパイクで返した率」が高いほど、相手の強度に押されていない。</p>
+        押すのは「チャンスボールを攻めずにチャンスで返した」ときだけ。攻めた分は攻撃の記録（決定・拾われた・ミス）で分かる。</p>
       <div style="overflow-x:auto;"><table class="stat-table"><thead><tr>
         <th>相手からの球</th><th>本数</th><th>スパイクで返した</th><th>チャンスで返した</th><th>スパイクで返した率</th></tr></thead>
         <tbody>${row('chance','チャンス')}${row('spike','スパイク')}</tbody></table></div></div>`;
@@ -4535,6 +4610,24 @@ function exportSummaryCSV() {
   downloadCSV(rows, `${state.date}_${state.opponent}_集計.csv`);
 }
 
+// ファイルの受け渡し: スマホ・タブレットは共有シート（「ファイルに保存」やAirDropが選べる）、それ以外はダウンロード
+function deliverFile(blob, filename) {
+  try {
+    const file = new File([blob], filename, { type: blob.type });
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && window.matchMedia('(pointer:coarse)').matches) {
+      navigator.share({ files: [file], title: filename }).catch(e => { if (!e || e.name !== 'AbortError') downloadBlob(blob, filename); });
+      return;
+    }
+  } catch (e) { /* File/共有が使えない環境 */ }
+  downloadBlob(blob, filename);
+}
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function downloadCSV(rows, filename) {
   const csv = rows.map(row => row.map(cell => {
     const s = String(cell ?? '');
@@ -4545,10 +4638,7 @@ function downloadCSV(rows, filename) {
   }).join(',')).join('\n');
   // BOM つけてExcelで文字化けしないようにする
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  deliverFile(blob, filename);
 }
 
 // ============ 失点の記録の深さ（ゾーン／点／点＋反応） ============
@@ -4565,12 +4655,28 @@ function renderCourtLevelBtns(){
     `<button class="level-btn ${cur===l.n?'sel':''}" onclick="setCourtLevel(${l.n})">${l.t}<small>${l.s}</small></button>`).join('');
   const wrap = document.getElementById('courtSideWrap');
   if (wrap) wrap.style.display = cur >= 1 ? '' : 'none';
+  const acw = document.getElementById('autoConfirmWrap'), ac = document.getElementById('autoConfirm');
+  if (acw) acw.style.display = cur >= 1 ? 'flex' : 'none';
+  if (ac) ac.checked = state.autoConfirm !== false;
   updateCourtSideButtons();
+}
+// ライブ用／映像分析用の一括設定
+function applyModePreset(kind){
+  if (kind === 'live') { state.detailMode = false; state.courtLevel = 1; state.autoConfirm = true; }
+  else { state.detailMode = true; state.courtLevel = 2; state.autoConfirm = false; }
+  const dm = document.getElementById('detailMode'); if (dm) { dm.checked = state.detailMode; renderDefaultSetterSelect(); }
+  renderCourtLevelBtns();
+  if (state.matchId) saveMatch();
 }
 function setCourtLevel(n){
   state.courtLevel = n|0;
   renderCourtLevelBtns();
   if (state.matchId) saveMatch();
+}
+function toggleAutoConfirm(){
+  state.autoConfirm = (state.autoConfirm === false);
+  saveMatch();
+  showToast(state.autoConfirm ? 'コート図は最後のタップで自動確定します' : 'コート図は確定ボタンで確定します');
 }
 function cycleCourtLevel(){
   state.courtLevel = ((state.courtLevel|0) + 1) % 3;
@@ -4703,6 +4809,22 @@ function courtSvgFrame(o, inner, id){
 }
 
 let ct = null; // 記録中: { type, from:{X,Y}, to:{X,Y}, power, react:Set, noReact, o }
+let ctAutoTimer = null;
+// 自動確定: 必要な入力（打点・落下点・選手）がそろったら少し待って確定する。深さ2の失点は反応の複数選択があるので手で確定
+function autoConfirmActive(){
+  if (!ct || state.autoConfirm === false) return false;
+  const spec = COURT_TYPES[ct.type];
+  const needReact = (state.courtLevel|0) >= 2 && spec.side === 'them';
+  return !needReact;
+}
+function maybeAutoConfirm(){
+  if (ctAutoTimer) { clearTimeout(ctAutoTimer); ctAutoTimer = null; }
+  if (!autoConfirmActive()) return;
+  const ready = !!(ct.from && ct.to && (!ct.needPlayer || ct.player));
+  if (!ready) return;
+  document.getElementById('ctStep').textContent = '確定します…（間違えたら ↶ 戻す）';
+  ctAutoTimer = setTimeout(() => { ctAutoTimer = null; if (ct) ctConfirm(); }, 350);
+}
 function openCourtModal(type){
   const spec = COURT_TYPES[type];
   ct = { type, from:null, to:null, power: (pendingRecord && pendingRecord.power) || (spec.power === true ? 'hard' : null), blockTouch:false, react:new Set(), noReact:false, o: courtOrient(),
@@ -4722,8 +4844,10 @@ function renderCourtModal(){
   if (!ct) return;
   const spec = COURT_TYPES[ct.type];
   const o = ct.o;
+  const auto = autoConfirmActive();
   document.getElementById('ctStep').textContent =
-    !ct.from ? `① ${spec.from} をタップ` : (!ct.to ? `② ${spec.to} をタップ（コート外もOK）` : '③ 下で確定（落下点はタップで置き直せる）');
+    !ct.from ? `① ${spec.from} をタップ${auto && spec.power === true ? '（軟打・ブロック当たりなら先に押す）' : ''}`
+    : (!ct.to ? `② ${spec.to} をタップ（コート外もOK）${auto ? '→ 自動で確定' : ''}` : (auto ? '③ 「誰が」を選ぶと確定' : '③ 下で確定（落下点はタップで置き直せる）'));
   const P = (X,Y) => courtToSvg(o, X, Y);
   const f = v => Math.round(v*100)/100;
   let inner = '';
@@ -4741,6 +4865,7 @@ function renderCourtModal(){
   wrap.innerHTML = courtSvgFrame(o, inner, 'ctSvg');
   document.getElementById('ctSvg').addEventListener('click', onCourtTap);
   renderCourtPanel();
+  maybeAutoConfirm();
 }
 function onCourtTap(e){
   if (!ct) return;
@@ -4848,9 +4973,10 @@ function ctToggleReact(name){
   renderCourtModal();
 }
 function ctToggleNoReact(){ ct.noReact = !ct.noReact; if (ct.noReact) ct.react.clear(); renderCourtModal(); }
-function ctReset(){ ct.from = null; ct.to = null; renderCourtModal(); }
-function ctCancel(){ ct = null; closeModal('modal-court'); pendingRecord = null; lsAwaiting = false; renderLsPlayers(); }
+function ctReset(){ if (ctAutoTimer) { clearTimeout(ctAutoTimer); ctAutoTimer = null; } ct.from = null; ct.to = null; renderCourtModal(); }
+function ctCancel(){ if (ctAutoTimer) { clearTimeout(ctAutoTimer); ctAutoTimer = null; } ct = null; closeModal('modal-court'); pendingRecord = null; lsAwaiting = false; renderLsPlayers(); }
 function ctConfirm(){
+  if (ctAutoTimer) { clearTimeout(ctAutoTimer); ctAutoTimer = null; }
   if (!ct || !ct.from || !ct.to) return;
   const lvl = state.courtLevel|0;
   if (ct.needPlayer) pendingRecord.player = ct.player || null;
@@ -4869,6 +4995,49 @@ function ctConfirm(){
   proceedToDetailOrFinalize();
 }
 
+// 打点→落下点の線と点（点図・TO図で共用）
+function courtLinesSvg(withC, mine, o){
+  const P = (X,Y) => courtToSvg(o, X, Y);
+  const f = v => Math.round(v*100)/100;
+  const clsOf = r => { const c = r.court; if (mine) return 'kill' + (c.power === 'soft' ? ' dashed' : ''); return c.power === 'hard' ? 'hard' : (c.power === 'soft' ? 'soft' : 'serve'); };
+  let inner = '';
+  withC.forEach(r => { const c = r.court, a = P(c.from.x, c.from.y), b = P(c.to.x, c.to.y);
+    inner += `<line x1="${f(a.x)}" y1="${f(a.y)}" x2="${f(b.x)}" y2="${f(b.y)}" class="ct-shot ${clsOf(r)}" opacity=".8"/>`; });
+  withC.forEach(r => { const c = r.court, a = P(c.from.x, c.from.y); inner += `<circle cx="${f(a.x)}" cy="${f(a.y)}" r=".22" class="ct-from"/>`; });
+  withC.forEach(r => { const c = r.court, b = P(c.to.x, c.to.y);
+    inner += `<circle cx="${f(b.x)}" cy="${f(b.y)}" r=".34" class="ct-to ${c.noReact ? 'none' : ''} ${mine ? 'mine' : ''} ${c.blockTouch ? 'bt' : ''}"/>`; });
+  return inner;
+}
+
+// TO図: タイムアウト・セット間に見る「決めた位置」「決められた位置」とスパイク効果率
+let toScope = 'set';   // 'set'=今のセット / 'all'=試合全体
+function openToView(){ renderToView(); document.getElementById('modal-toview').classList.add('active'); }
+function setToScope(v){ toScope = v; renderToView(); }
+function renderToView(){
+  const rallies = toScope === 'set' ? (state.currentRallies || []) : getAllRallies();
+  document.getElementById('toFilters').innerHTML =
+    `<button class="${toScope==='set'?'active':''}" onclick="setToScope('set')">第${state.currentSet}セット</button>` +
+    `<button class="${toScope==='all'?'active':''}" onclick="setToScope('all')">試合全体</button>`;
+  const kills = rallies.filter(r => r.type === 'us_kill');
+  const lostT = r => { const t = effectiveType(r); return t === 'them_kill' || t === 'them_direct' || t === 'them_ace'; };
+  const lost = rallies.filter(lostT);
+  const kc = kills.filter(r => r.court && r.court.from && r.court.to), lc = lost.filter(r => r.court && r.court.from && r.court.to);
+  const court = (title, cls, list, all, mine) =>
+    `<div class="to-court"><div class="ttl ${cls}">${title} ${all.length}本${list.length < all.length ? `（点あり ${list.length}）` : ''}</div>` +
+    courtSvgFrame('v', courtLinesSvg(list, mine, 'v'), '') + `</div>`;
+  // スパイク効果率（セッターに見せる用）
+  const att = {};
+  rallies.forEach(r => { if ((r.type === 'us_kill' || r.type === 'us_spike_err' || r.type === 'spike_attempt') && r.player) {
+    const a = att[r.player] || (att[r.player] = { n:0, k:0, e:0 }); a.n++; if (r.type === 'us_kill') a.k++; if (r.type === 'us_spike_err') a.e++; } });
+  const rows = Object.keys(att).sort((a,b) => att[b].n - att[a].n).map(n => { const a = att[n]; const eff = Math.round((a.k - a.e) / a.n * 100);
+    return `<tr><td>${escapeHtml(n)}</td><td>${a.n}</td><td>${a.k}</td><td>${a.e}</td><td><b>${eff > 0 ? '+' : ''}${eff}%</b></td></tr>`; }).join('');
+  document.getElementById('toBody').innerHTML =
+    court('決めた位置', 'us', kc, kills, true) + court('決められた位置', 'them', lc, lost, false) +
+    `<div class="to-table"><table><thead><tr><th>スパイク</th><th>本数</th><th>決定</th><th>ミス</th><th>効果率</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="5" style="text-align:center;color:var(--text-tertiary);">まだ記録なし</td></tr>'}</tbody></table>
+      <div class="to-note">効果率＝（決定−ミス）÷本数。緑＝決定（破線＝軟打）／赤＝強打・橙＝軟打・青＝サーブ・白抜き＝誰も動けず</div></div>`;
+}
+
 // 集計: 点図（打点→落下点の線）。縦向き固定（相手が上・自分が下）
 function renderCourtChart(list){
   const o = 'v';
@@ -4877,20 +5046,7 @@ function renderCourtChart(list){
   const withC = list.filter(r => r.court && r.court.from && r.court.to);
   let inner = '';
   const mine = withC.length > 0 && !!COURT_TYPES[effectiveType(withC[0])] && COURT_TYPES[effectiveType(withC[0])].side === 'us';
-  const clsOf = r => { const c = r.court; if (mine) return 'kill' + (c.power === 'soft' ? ' dashed' : ''); return c.power === 'hard' ? 'hard' : (c.power === 'soft' ? 'soft' : 'serve'); };
-  withC.forEach(r => {
-    const c = r.court, a = P(c.from.x, c.from.y), b = P(c.to.x, c.to.y);
-    inner += `<line x1="${f(a.x)}" y1="${f(a.y)}" x2="${f(b.x)}" y2="${f(b.y)}" class="ct-shot ${clsOf(r)}" opacity=".8"/>`;
-  });
-  // 点と線: 打点（小さな白抜き）→ 線 → 落下点（塗り）
-  withC.forEach(r => {
-    const c = r.court, a = P(c.from.x, c.from.y);
-    inner += `<circle cx="${f(a.x)}" cy="${f(a.y)}" r=".22" class="ct-from"/>`;
-  });
-  withC.forEach(r => {
-    const c = r.court, b = P(c.to.x, c.to.y);
-    inner += `<circle cx="${f(b.x)}" cy="${f(b.y)}" r=".34" class="ct-to ${c.noReact ? 'none' : ''} ${mine ? 'mine' : ''} ${c.blockTouch ? 'bt' : ''}"/>`;
-  });
+  inner += courtLinesSvg(withC, mine, o);
   let legend;
   if (mine) {
     // 自チームの決定球: 選手別の本数
@@ -5018,12 +5174,7 @@ function exportMatchJSON() {
   saveMatch();
   const data = { matches: [JSON.parse(JSON.stringify(state))], presets: [], roster: null, exportedAt: new Date().toISOString(), scope: 'match' };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${state.date || 'match'}_${state.opponent || '試合'}_volleyball-stats.json`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  deliverFile(blob, `${state.date || 'match'}_${state.opponent || '試合'}_volleyball-stats.json`);
 }
 
 function exportBackup() {
@@ -5034,12 +5185,7 @@ function exportBackup() {
     exportedAt: new Date().toISOString()
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `volleyball_backup_${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  deliverFile(blob, `volleyball_backup_${new Date().toISOString().slice(0,10)}.json`);
 }
 
 function importBackup(event) {
