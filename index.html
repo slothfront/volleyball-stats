@@ -1455,9 +1455,10 @@ input[type="number"] {
     <div class="section-label">OUR POINTS</div>
     <div class="record-grid">
       <button class="record-btn us" data-type="us_ace" onclick="recordPoint('us_ace')">サービスエース<span class="sub">(ゾーンのみ)</span></button>
-      <button class="record-btn us" data-type="us_kill" onclick="recordPoint('us_kill')">スパイク決定<span class="sub">(ゾーン+選手)</span></button>
+      <button class="record-btn us" data-type="us_kill" onclick="recordPoint('us_kill','hard')">スパイク決定<span class="sub">強打 (ゾーン+選手)</span></button>
+      <button class="record-btn us" data-type="us_kill" onclick="recordPoint('us_kill','soft')">軟打決定<span class="sub">フェイント・プッシュ・ロール</span></button>
       <button class="record-btn us" data-type="us_block" onclick="recordPoint('us_block')">ブロック決定<span class="sub">(選手)</span></button>
-      <button class="record-btn us" data-type="them_err" onclick="recordPoint('them_err')">相手ミス<span class="sub">(タップのみ)</span></button>
+      <button class="record-btn us" data-type="them_err" onclick="recordPoint('them_err')" style="grid-column:1/-1;">相手ミス<span class="sub">(タップのみ)</span></button>
     </div>
 
     <div class="section-label">OPPONENT POINTS</div>
@@ -1482,8 +1483,8 @@ input[type="number"] {
 
     <div class="section-label">RALLY CONTINUED (NO POINT)</div>
     <div class="record-grid" id="continuedGrid" style="grid-template-columns: 1fr 1fr;">
-      <button class="record-btn attempt" data-type="spike_attempt" onclick="recordPoint('spike_attempt','hard')">スパイク 強打<span class="sub">つながれた・点なし</span></button>
-      <button class="record-btn attempt" data-type="spike_attempt" onclick="recordPoint('spike_attempt','soft')">スパイク 軟打・フェイント<span class="sub">つながれた・点なし</span></button>
+      <button class="record-btn attempt" data-type="spike_attempt" onclick="recordPoint('spike_attempt','hard')">強打 拾われた<span class="sub">点なし</span></button>
+      <button class="record-btn attempt" data-type="spike_attempt" onclick="recordPoint('spike_attempt','soft')">軟打 拾われた<span class="sub">点なし</span></button>
       <button class="record-btn attempt" id="btnDigAttempt" data-type="dig_attempt" onclick="recordPoint('dig_attempt')" style="display:none;">ディグ↑ 上げた<span class="sub">選手のみ・点なし</span></button>
     </div>
 
@@ -2871,11 +2872,12 @@ function isLandscapeMode(){
 // 左＝得点 / 右＝失点。R8戦の実測頻度（相手ミス35・ディグミス23・スパイク決定25…）で大きさを決める
 const LS_SCORE_BTNS = [
   { type:'them_err',      t:'相手ミス',       s:'タップのみ', cls:'us',    hot:true, span:2, rspan:2 },
-  { type:'us_kill',       t:'スパイク決定',   s:'選手+ゾーン', cls:'us', deepS:'選手＋点' },
+  { type:'us_kill',       t:'スパイク決定',   s:'強打・選手+ゾーン', cls:'us', deepS:'強打・選手＋点', power:'hard' },
+  { type:'us_kill',       t:'軟打決定',       s:'フェイント・プッシュ・ロール', cls:'us', power:'soft' },
   { type:'us_ace',        t:'エース',         s:'ゾーン',     cls:'us', deepS:'点で記録' },
-  { type:'us_block',      t:'ブロック決定',   s:'選手',       cls:'us', span:2 },
-  { type:'spike_attempt', t:'強打',           s:'つながれた・点なし', cls:'ghost', power:'hard' },
-  { type:'spike_attempt', t:'軟打・フェイント', s:'つながれた・点なし', cls:'ghost', power:'soft' },
+  { type:'us_block',      t:'ブロック決定',   s:'選手',       cls:'us' },
+  { type:'spike_attempt', t:'強打 拾われた',  s:'点なし',     cls:'ghost', power:'hard' },
+  { type:'spike_attempt', t:'軟打 拾われた',  s:'点なし',     cls:'ghost', power:'soft' },
 ];
 // 失点を点で記録するモードでは「ディグ↑（上げた）」が加わり、「その他」が1列になる
 function lsLoseBtns(){
@@ -4148,7 +4150,7 @@ function renderDetailStats() {
   const withChance = rallies.filter(r => r.chance && r.chance.length);
   const digs = rallies.filter(r => r.type === 'dig_attempt');
   const withReact = rallies.filter(r => r.court && (r.court.noReact || (r.court.react && r.court.react.length)));
-  const withPower = rallies.filter(r => r.court && r.court.power);
+  const withPower = rallies.filter(r => r.court && r.court.power && COURT_TYPES[r.type] && COURT_TYPES[r.type].side === 'them');  // 失点した球だけ
   const atkPower = rallies.filter(r => r.power && (r.type === 'us_kill' || r.type === 'spike_attempt' || r.type === 'us_spike_err'));
   if (!withFB.length && !withSetter.length && !withChance.length && !digs.length && !withReact.length && !withPower.length && !atkPower.length) { el.innerHTML = ''; return; }
 
@@ -4467,6 +4469,8 @@ function usesCourt(type){ return (state.courtLevel|0) >= 1 && !!COURT_TYPES[type
 function mergedLostMode(){ return (state.courtLevel|0) >= 2; }
 const MERGED_ERR_OF = { them_kill: 'us_dig_err', them_ace: 'us_recv_err' };
 function courtModalTitle(type){
+  if (type === 'us_kill' && pendingRecord && pendingRecord.power === 'soft') return '軟打決定（フェイント・プッシュ・ロール）';
+  if (type === 'us_kill' && pendingRecord && pendingRecord.power === 'hard') return 'スパイク決定（強打）';
   if (mergedLostMode() && type === 'them_kill') return '被スパイク失点／ディグミス';
   if (mergedLostMode() && type === 'them_ace') return '被サービスエース／レシーブミス';
   return POINT_TYPES[type].label;
@@ -4531,7 +4535,7 @@ function courtSvgFrame(o, inner, id){
 let ct = null; // 記録中: { type, from:{X,Y}, to:{X,Y}, power, react:Set, noReact, o }
 function openCourtModal(type){
   const spec = COURT_TYPES[type];
-  ct = { type, from:null, to:null, power: spec.power === true ? 'hard' : null, react:new Set(), noReact:false, o: courtOrient(),
+  ct = { type, from:null, to:null, power: (pendingRecord && pendingRecord.power) || (spec.power === true ? 'hard' : null), react:new Set(), noReact:false, o: courtOrient(),
          player: (pendingRecord && pendingRecord.player) || null, needPlayer: !!POINT_TYPES[type].needPlayer };
   // ディグミス・レシーブミスは選んだ選手を「反応した人」に最初から入れておく
   if (ct.player) ct.react.add(ct.player);
@@ -4611,7 +4615,7 @@ function renderCourtPanel(){
       cands.map(p => `<button class="ct-chip who ${ct.player===p.name?'sel':''}" onclick="ctPickPlayer('${escapeAttr(p.name)}')">${escapeHtml(p.short || p.name)}</button>`).join('');
   }
   if (spec.power) {
-    power = `<span class="ct-lab">球質${spec.power === 'optional' ? '（任意）' : ''}</span><div class="ct-pow">
+    power = `<span class="ct-lab">球質${spec.power === 'optional' ? '（訂正できます）' : ''}</span><div class="ct-pow">
       <button class="ct-tog ${ct.power==='hard'?'sel':''}" onclick="ctSetPower('hard')">強打</button>
       <button class="ct-tog ${ct.power==='soft'?'sel':''}" onclick="ctSetPower('soft')"><span class="full">軟打・フェイント</span><span class="short">軟打</span></button></div>`;
   }
