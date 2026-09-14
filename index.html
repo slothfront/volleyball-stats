@@ -1381,7 +1381,7 @@ input[type="number"] {
 
   <div style="padding:12px;">
     <div class="rotation-display">
-      <div class="rotation-header" onclick="if(state.lineupLater)openServerModal()">
+      <div class="rotation-header" onclick="openServerModal()" title="タップでサーバーを記入・修正">
         ROTATION R<span id="rotationNum">1</span> · SERVER: <span class="server-name" id="serverName">-</span>
       </div>
       <div class="rotation-grid" id="rotationGrid"></div>
@@ -1461,7 +1461,7 @@ input[type="number"] {
   <div id="recordLandscape">
     <div class="ls-top">
       <div class="ls-score"><b id="lsScoreUs">0</b><i>-</i><b id="lsScoreThem">0</b></div>
-      <div class="ls-meta" onclick="if(state.lineupLater)openServerModal()"><span id="lsMeta"></span></div>
+      <div class="ls-meta" onclick="openServerModal()"><span id="lsMeta"></span></div>
       <div class="ls-top-btns">
         <button class="ls-undo" onclick="undoLast()">↶ 戻す</button>
         <button class="ls-menu" onclick="openLsMenu()">⋯</button>
@@ -1564,7 +1564,7 @@ input[type="number"] {
 <!-- ============ 次のサーバー（サーブ順を試合中に記入） ============ -->
 <div class="modal-overlay" id="modal-server">
   <div class="modal">
-    <h3>次のサーバーは？</h3>
+    <h3 id="modalServerTitle">次のサーバーは？</h3>
     <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;line-height:1.5;" id="modalServerDesc"></p>
     <div class="player-grid" id="modalServerGrid"></div>
     <button class="btn secondary large" style="margin-top:12px;" onclick="closeModal('modal-server')">あとで</button>
@@ -2892,7 +2892,7 @@ function renderLandscape(){
   document.getElementById('lsRot').innerHTML = [4,3,2,5,6,1].map(pos => {
     const idx = state.startingLineup[(pos - 1 + state.rotationIndex) % 6];
     const p = idx !== null ? state.players[idx] : null;
-    return `<div class="${pos===1?'srv':''}"><b>P${pos}${pos===1?'★':''}</b>${escapeHtml(p ? (p.short || p.name) : '-')}</div>`;
+    return `<div class="${pos===1?'srv':''}" onclick="openSubModal(${pos})"><b>P${pos}${pos===1?'★':''}</b>${escapeHtml(p ? (p.short || p.name) : '-')}</div>`;
   }).join('');
 
   renderLsDetail();
@@ -4552,27 +4552,58 @@ function maybePromptServer(){
   openServerModal();
 }
 function openServerModal(){
-  const slot = currentServerSlot();
-  const used = new Set(state.startingLineup.filter((v,i) => v != null && i !== slot));
-  const cands = fieldPlayerIdxs().filter(i => !used.has(i)).map(i => ({...state.players[i], idx:i}));
-  const filled = state.startingLineup.filter(v => v != null).length;
+  const slot = serverSlotToEdit();
   const cur = state.startingLineup[slot];
+  const onCourt = new Set(state.startingLineup.filter(v => v != null));
+  const field = fieldPlayerIdxs().map(i => ({...state.players[i], idx:i}));
+  const same   = field.filter(p => p.idx === cur);
+  const others = field.filter(p => p.idx !== cur && onCourt.has(p.idx));   // 別の位置にいる → 入れ替え
+  const bench  = field.filter(p => !onCourt.has(p.idx));                  // ベンチ → 交代
+  const filled = state.startingLineup.filter(v => v != null).length;
+  const rLabel = `R${slot + 1}`;
+  document.getElementById('modalServerTitle').textContent =
+    state.serving === 'us' ? '次のサーバーは？' : '次に自チームがサーブする人は？';
   document.getElementById('modalServerDesc').innerHTML =
-    `R${state.rotationIndex + 1} のサーバーを選んでください（${filled}/6人 記入済み${cur != null ? '・現在 ' + escapeHtml(state.players[cur].name) : ''}）。<br>` +
-    `<span style="font-size:11px;color:var(--text-tertiary);">6人そろえば2周目からは自動で回ります。残り1人になったら自動で埋めます。</span>`;
-  document.getElementById('modalServerGrid').innerHTML = cands.length ? cands.map(p => `
-    <button class="player-btn" onclick="pickServer(${p.idx})">${escapeHtml(p.short || p.name)}${p.number ? '<span class="num">#' + escapeHtml(p.number) + '</span>' : ''}</button>`).join('')
-    : '<p style="grid-column:1/-1;text-align:center;color:var(--text-tertiary);padding:16px;">候補がいません（出場登録・リベロ設定を確認）</p>';
+    `${rLabel} のサーバー${cur != null ? '（現在 <b>' + escapeHtml(state.players[cur].name) + '</b>）' : ''}を選んでください。${filled}/6人 記入済み。<br>` +
+    `<span style="font-size:11px;color:var(--text-tertiary);line-height:1.5;">` +
+    `別の位置にいる選手を選ぶと<b>位置を入れ替え</b>、ベンチの選手を選ぶと<b>交代</b>になります。` +
+    `残り1枠・候補1人なら自動で埋めます。</span>`;
+  const btn = (p, sub, style='') => `<button class="player-btn" ${style} onclick="pickServer(${p.idx})">${escapeHtml(p.short || p.name)}` +
+    `<span class="num">${sub}</span></button>`;
+  const sec = t => `<div style="grid-column:1/-1;font-size:11px;letter-spacing:0.1em;color:var(--text-secondary);margin:6px 0 2px;">${t}</div>`;
+  let html = '';
+  if (same.length) html += sec('▼ 現在のサーバー') + same.map(p => btn(p, 'そのまま', 'style="background:var(--yellow);"')).join('');
+  if (others.length) {
+    const posOf = idx => { const k = state.startingLineup.indexOf(idx); const pos = ((k - state.rotationIndex + 6) % 6) + 1; return `P${pos}`; };
+    html += sec('▼ コート上（選ぶと位置を入れ替え）') + others.map(p => btn(p, posOf(p.idx) + ' と入替', 'style="background:var(--blue);color:var(--paper);"')).join('');
+  }
+  if (bench.length) html += sec(state.lineupLater && filled < 6 ? '▼ まだ記入していない選手' : '▼ ベンチ（選ぶと交代）') +
+    bench.map(p => btn(p, p.number ? '#' + escapeHtml(p.number) : '')).join('');
+  if (!html) html = '<p style="grid-column:1/-1;text-align:center;color:var(--text-tertiary);padding:16px;">候補がいません（出場登録・リベロ設定を確認）</p>';
+  document.getElementById('modalServerGrid').innerHTML = html;
   document.getElementById('modal-server').classList.add('active');
 }
+// 記入・修正の対象スロット: 自サーブ中は今のサーバー、相手サーブ中は次にサーブする位置
+function serverSlotToEdit(){
+  return state.serving === 'us' ? currentServerSlot() : (state.rotationIndex + 1) % 6;
+}
 function pickServer(idx){
-  const slot = currentServerSlot();
+  const slot = serverSlotToEdit();
+  const old = state.startingLineup[slot];
+  const other = state.startingLineup.findIndex((v,i) => v === idx && i !== slot);
+  let msg = `R${slot + 1} サーバー: ${state.players[idx].name}`;
+  if (other >= 0) {
+    // 別の位置にいた → 入れ替え（元の人が相手の位置へ。元が空なら相手の位置が空く）
+    state.startingLineup[other] = (old == null ? null : old);
+    msg += (old != null) ? `（${state.players[old].name} と入替）` : '（位置を移動）';
+  } else if (old != null && old !== idx) {
+    msg += `（${state.players[old].name} と交代）`;
+  }
   state.startingLineup[slot] = idx;
   // 残り1枠・候補1人なら自動で埋める
   const empty = state.startingLineup.map((v,i) => v == null ? i : -1).filter(i => i >= 0);
   const used = new Set(state.startingLineup.filter(v => v != null));
   const rest = fieldPlayerIdxs().filter(i => !used.has(i));
-  let msg = `R${state.rotationIndex + 1} サーバー: ${state.players[idx].name}`;
   if (empty.length === 1 && rest.length === 1) {
     state.startingLineup[empty[0]] = rest[0];
     msg += ` ／ ${state.players[rest[0]].name} を残りの位置へ`;
@@ -4580,7 +4611,7 @@ function pickServer(idx){
   closeModal('modal-server');
   saveMatch();
   renderRecord();
-  showToast(lineupComplete() ? msg + '（6人そろいました。以降は自動）' : msg);
+  showToast(lineupComplete() && state.lineupLater ? msg + '（6人そろいました。以降は自動）' : msg);
 }
 
 // ============ 保存 / バックアップ ============
