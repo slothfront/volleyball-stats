@@ -1156,9 +1156,15 @@ input[type="number"] {
 .ls-players button .n{font-size:9px;opacity:.6;display:block;line-height:1;}
 .ls-players button.sel{background:var(--blue);color:#fff;}
 .ls-players button.cancel{flex:0 0 auto;background:var(--paper);border-style:dashed;padding:2px 10px;}
+.ls-players button.toss{flex:0 0 auto;font-size:10px;line-height:1.15;padding:2px 8px;border-style:dashed;}
+.ls-players button.toss.sel{background:var(--yellow);color:var(--black);border-style:solid;}
 .ls-players.ask{background:var(--yellow);padding:3px;}
 .ls-players.ask .lab{border-style:solid;background:var(--paper);color:var(--black);}
 @media (orientation:landscape) and (min-height:561px) and (pointer:coarse){ .ls-players{min-height:56px;} .ls-players .lab{font-size:13px;} }
+.ls-strip.ex button{flex:1 1 0;min-width:0;padding:2px 2px;font-size:clamp(10px,2vh,14px);line-height:1.1;}
+.ls-strip.ex button b{color:var(--red);}
+.ls-strip.ex .clr{flex:0 0 auto;padding:2px 8px;}
+.ls-strip.ex .lab small{font-size:8px;font-weight:700;}
 .ls-toast{position:fixed;left:50%;bottom:8px;transform:translateX(-50%) translateY(20px);
   background:var(--black);color:var(--paper);padding:7px 16px;font-size:13px;font-weight:700;
   opacity:0;pointer-events:none;transition:opacity .16s,transform .16s;z-index:900;white-space:nowrap;}
@@ -1198,6 +1204,7 @@ input[type="number"] {
 .ct-tog,.ct-chip{font-family:inherit;font-weight:800;font-size:13px;border:2px solid var(--black);background:var(--paper);color:var(--black);padding:7px 10px;cursor:pointer;min-height:38px;}
 .ct-tog.sel{background:var(--red);color:#fff;}
 .ct-tog.bt.sel{background:var(--black);color:#fff;}
+.ct-tog.toss.sel{background:var(--yellow);color:var(--black);}
 .ct-pow{display:contents;}
 .ct-tog .short{display:none;}
 .ct-chip.sel{background:var(--blue);color:#fff;}
@@ -1448,17 +1455,15 @@ input[type="number"] {
         <span class="detail-btns" id="dbFirstBtns"></span>
       </div>
       <div class="detail-row">
-        <span class="detail-key">チャンスボール</span>
+        <span class="detail-key">返球（相手→自）</span>
         <span class="detail-val" id="dbChanceVal">なし</span>
-        <span class="detail-btns">
-          <button class="btn small outline" onclick="addChanceBall()">＋追加</button>
-          <button class="btn small outline" onclick="clearChanceBalls()">消す</button>
-        </span>
+        <span class="detail-btns" id="dbExchangeBtns"></span>
       </div>
       <div class="detail-row">
         <span class="detail-key">セッター</span>
         <span class="detail-val" id="dbSetterVal">—</span>
         <span class="detail-btns">
+          <button class="btn small outline" onclick="toggleOtherSetter()">他の選手のトス</button>
           <button class="btn small outline" onclick="overrideSetter()">別の人</button>
           <button class="btn small outline" onclick="resetSetterOverride()">戻す</button>
         </span>
@@ -1767,6 +1772,17 @@ input[type="number"] {
     </div>
     <div id="statsTabContent"></div>
     <div id="statsDetail"></div>
+    <div class="card" style="margin-top:18px;">
+      <h2>EXPORT — この試合</h2>
+      <div class="row">
+        <button class="btn" onclick="exportRallyCSV()">ラリーログCSV</button>
+        <button class="btn" onclick="exportSummaryCSV()">集計CSV</button>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <button class="btn" onclick="exportMatchJSON()">この試合のJSON</button>
+        <button class="btn outline" onclick="exportBackup()">全試合バックアップ</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1782,7 +1798,7 @@ input[type="number"] {
     </p>
     <div style="display:flex;flex-direction:column;gap:10px;">
       <button class="btn success large" onclick="confirmEndSet()">セット終了 → 次のセットへ</button>
-      <button class="btn danger large" onclick="confirmEndMatch()">試合終了</button>
+      <button class="btn danger large" onclick="confirmEndMatch()">試合を閉じる（集計へ。いつでも続きから再開できます）</button>
       <button class="btn secondary large" onclick="closeModal('modal-endset')">キャンセル</button>
     </div>
   </div>
@@ -1816,8 +1832,16 @@ input[type="number"] {
       <button class="btn large" onclick="exportSummaryCSV()">集計CSV</button>
     </div>
     <div class="row" style="margin-top:8px;">
-      <button class="btn outline large" onclick="exportBackup()">JSONバックアップ</button>
+      <button class="btn large" onclick="exportMatchJSON()">この試合のJSON</button>
+      <button class="btn outline large" onclick="exportBackup()">全試合バックアップ</button>
     </div>
+  </div>
+  <div class="card">
+    <h2>CONTINUE</h2>
+    <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px;">
+      「終了」は区切りではありません。いつでも続きから記録でき、いつでも集計を見られます。
+    </p>
+    <button class="btn success large" onclick="resumeMatch(state.matchId)">続きから記録する（次のセット）</button>
   </div>
   <div class="card">
     <button class="btn secondary large" onclick="goHome()">ホームに戻る</button>
@@ -1870,11 +1894,21 @@ let state = {
 
 // ---- 詳細モード: このラリー分の一時保持（点が入ったときにレコードへ合流） ----
 let pendingFirstBall = null;      // {kind:'serve'|'recv', player, rating}
-let pendingChance = [];           // [{player, rating}]
+let pendingChance = [];           // [{player, rating}]（旧: チャンスボールの評価。2026-09-14に返球の強度へ置き換え。旧データの表示用に残す）
+let pendingExchange = [];         // [{in:'spike'|'chance', out:'spike'|'chance'}] 相手からの球 → こちらの返し
+const EX_LABEL = { spike:'スパイク', chance:'チャンス' };
+function exchangeText(list){ return list.length ? list.map(e => `${EX_LABEL[e.in]}→${EX_LABEL[e.out]}`).join('、') : 'なし'; }
+function addExchange(i, o){ pendingExchange.push({ in:i, out:o }); buzz(); renderDetailBar(); }
+function clearExchanges(){ pendingExchange = []; renderDetailBar(); }
+function exchangeButtonsHtml(cls){
+  const cnt = (i,o) => pendingExchange.filter(e => e.in===i && e.out===o).length;
+  const b = (i,o,t) => `<button class="${cls}" onclick="addExchange('${i}','${o}')">${t}${cnt(i,o) ? ` <b>${cnt(i,o)}</b>` : ''}</button>`;
+  return b('chance','spike','チャ→スパ') + b('chance','chance','チャ→チャ') + b('spike','spike','スパ→スパ') + b('spike','chance','スパ→チャ');
+}
 let pendingSetterOverride = null; // このラリーだけセッターを差し替える場合の名前
 const RATING_MARKS = ['×', '△', '○', '◎'];   // index = rating(0-3)
 function ratingMark(v){ return (v===null||v===undefined) ? '—' : (RATING_MARKS[v] || String(v)); }
-function clearPendingDetail(){ pendingFirstBall = null; pendingChance = []; pendingSetterOverride = null; }
+function clearPendingDetail(){ pendingFirstBall = null; pendingChance = []; pendingExchange = []; pendingSetterOverride = null; }
 function currentSetterName(){
   if (pendingSetterOverride) return pendingSetterOverride;
   if (state.defaultSetter === null || state.defaultSetter === undefined) return '';
@@ -2346,6 +2380,8 @@ function statsGoBack() {
   if (statsReturnScreen === 'screen-finish') {
     renderFinishScreen();
     showScreen('screen-finish');
+  } else if (statsReturnScreen === 'screen-home') {
+    goHome();
   } else {
     goRecord();
   }
@@ -2405,10 +2441,9 @@ function renderHome() {
               : ` · ${wins}-${losses} (${setCount} SETS)`}
           </div>
         </div>
-        <div style="display:flex;gap:6px;">
-          ${isLive
-            ? `<button class="btn small success" onclick="resumeMatch('${m.matchId}')">続きから</button>`
-            : `<button class="btn small outline" onclick="loadMatch('${m.matchId}')">開く</button>`}
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+          <button class="btn small success" onclick="resumeMatch('${m.matchId}')">続きから</button>
+          <button class="btn small outline" onclick="openStatsFromHome('${m.matchId}')">集計</button>
           <button class="btn small danger" onclick="deleteMatch('${m.matchId}')">削除</button>
         </div>
       </div>
@@ -2416,12 +2451,41 @@ function renderHome() {
   }).join('');
 }
 
+// ホームから集計だけ見る（記録画面へは行かない）
+function openStatsFromHome(id) {
+  const list = JSON.parse(localStorage.getItem('vb_matches') || '[]');
+  const m = list.find(x => x.matchId === id);
+  if (!m) return;
+  state = JSON.parse(JSON.stringify(m));
+  cleanupDuplicateSets();
+  showStats('screen-home', null);
+}
+
 function resumeMatch(id) {
   const list = JSON.parse(localStorage.getItem('vb_matches') || '[]');
   const m = list.find(x => x.matchId === id);
   if (!m) return;
   state = JSON.parse(JSON.stringify(m));
-  state.finished = false; // 進行中扱いに(誤って試合終了した場合の保険)
+  const wasFinished = !!state.finished;
+  state.finished = false; // 「終了」は区切りではない。いつでも続きから
+  // 終了した試合を続ける: 現セットが確定済み（setsにあり、進行中の記録が無い）なら次のセットを始める
+  const curDone = state.sets && state.sets.some(s => s.set === state.currentSet) &&
+    (!state.currentRallies || state.currentRallies.length === 0);
+  if (wasFinished || curDone) {
+    const maxSet = state.sets.reduce((m, s) => Math.max(m, s.set), 0);
+    if (!state.currentRallies || state.currentRallies.length === 0) {
+      state.currentSet = maxSet + 1;
+      state.currentRallies = [];
+      state.scoreUs = 0; state.scoreThem = 0; state.rotationIndex = 0;
+      const guess = state.serving === 'us' ? 'them' : 'us';
+      const ok = confirm(`第${state.currentSet}セットを始めます。\n\nサーブ権はどちらですか?\n\nOK = ${guess === 'us' ? '自チーム' : '相手チーム'}\nキャンセル = ${guess === 'us' ? '相手チーム' : '自チーム'}`);
+      state.serving = ok ? guess : (guess === 'us' ? 'them' : 'us');
+      state.currentSetStartServe = state.serving;
+      state.courtSide = state.courtSide === 'right' ? 'left' : 'right';
+      if (state.lineupLater) state.startingLineup = [null, null, null, null, null, null];
+      serverPromptShownFor = null;
+    }
+  }
   // 旧データ互換: currentSetStartServe が無ければ推定
   if (!state.currentSetStartServe) {
     if (state.currentRallies && state.currentRallies.length > 0) {
@@ -3019,7 +3083,8 @@ function renderLsPlayers(){
   el.innerHTML = `<span class="lab">${lab}</span>` +
     lsStripPlayers().map(p => `<button class="${lsPreselect === p.name ? 'sel' : ''}" onclick="lsPlayerTap('${escapeAttr(p.name)}')">` +
       `${p.number ? `<span class="n">#${escapeHtml(p.number)}${p.libero ? ' L' : ''}</span>` : (p.libero ? '<span class="n">L</span>' : '')}${escapeHtml(p.short || p.name)}</button>`).join('') +
-    (ask ? `<button class="cancel" onclick="lsCancelAsk()">✕</button>` : '');
+    (ask ? `<button class="cancel" onclick="lsCancelAsk()">✕</button>` : '') +
+    (state.detailMode && !ask ? `<button class="toss ${pendingSetterOverride === OTHER_SETTER ? 'sel' : ''}" onclick="toggleOtherSetter()">トス<br>${pendingSetterOverride === OTHER_SETTER ? '他の選手' : 'セッター'}</button>` : '');
 }
 function lsPlayerTap(name){
   buzz();
@@ -3052,13 +3117,11 @@ function lsFirstBallHtml(){
     `<span class="cur empty">未入力</span><button onclick="inputReception()">入力</button></div>`;
 }
 
+// 返球の強度: 相手からの球（スパイク／チャンス）を、こちらは何で返したか（スパイク／チャンス）
 function lsChanceHtml(){
-  const txt = pendingChance.length
-    ? pendingChance.map(c => c.player + ratingMark(c.rating)).join('、') : 'なし';
-  return `<div class="ls-strip"><span class="lab">チャンス</span>` +
-    `<span class="cur">${escapeHtml(txt)}</span>` +
-    `<button onclick="addChanceBall()">＋</button>` +
-    (pendingChance.length ? `<button onclick="clearChanceBalls()">消</button>` : '') + `</div>`;
+  return `<div class="ls-strip ex"><span class="lab">返球<br><small>相手→自</small></span>` +
+    exchangeButtonsHtml('') +
+    (pendingExchange.length ? `<button class="clr" onclick="clearExchanges()">消</button>` : '') + `</div>`;
 }
 
 function renderLsDetail(){
@@ -3072,7 +3135,7 @@ function renderLsDetail(){
   if (!el) return;
   if (!state.detailMode){
     el.innerHTML = '<div style="font-size:10px;color:var(--text-tertiary);line-height:1.6;">' +
-      '詳細モードOFF<br>1本目の評価・チャンスボール・セッターは記録しません。</div>';
+      '詳細モードOFF<br>1本目の評価・返球の強度・セッターは記録しません。</div>';
     return;
   }
   const sname = currentSetterName();
@@ -3081,8 +3144,7 @@ function renderLsDetail(){
     : '<span style="color:var(--red);">未入力</span>';
   el.innerHTML =
     `<div class="r"><span class="k">1本目</span><span class="v">${fb}</span></div>
-     <div class="r"><span class="k">チャンス</span><span class="v" style="font-size:11px;">${
-       pendingChance.length ? escapeHtml(pendingChance.map(c=>c.player+ratingMark(c.rating)).join('、')) : 'なし'}</span></div>
+     <div class="r"><span class="k">返球</span><span class="v" style="font-size:11px;">${escapeHtml(exchangeText(pendingExchange))}</span></div>
      <div class="r"><span class="k">セッター</span><span class="v ${sname?'':'empty'}" style="font-size:11px;">${
        escapeHtml(sname || '未設定')}${pendingSetterOverride ? '（今回のみ）' : ''}</span></div>
      <div style="font-size:9px;color:var(--text-tertiary);margin-top:3px;line-height:1.4;">
@@ -3249,9 +3311,13 @@ function overrideSetter(){
   });
 }
 function resetSetterOverride(){ pendingSetterOverride = null; renderDetailBar(); }
+// 「セッター以外のトス」: 次のスパイク記録だけ、上げた人を「他の選手」にする（誰かは問わない）
+const OTHER_SETTER = '他の選手';
+function toggleOtherSetter(){ pendingSetterOverride = (pendingSetterOverride === OTHER_SETTER) ? null : OTHER_SETTER; buzz(); renderDetailBar(); }
 
 function renderDetailBar(){
   renderLsDetail();
+  renderLsPlayers();
   const bar = document.getElementById('detailBar');
   if (!bar) return;
   if (!state.detailMode) { bar.style.display = 'none'; return; }
@@ -3281,10 +3347,10 @@ function renderDetailBar(){
   }
 
   const cEl = document.getElementById('dbChanceVal');
-  cEl.textContent = pendingChance.length
-    ? pendingChance.map(c=>`${c.player}${ratingMark(c.rating)}`).join('、')
-    : 'なし';
+  cEl.textContent = exchangeText(pendingExchange);
   cEl.classList.toggle('empty', false);
+  const exEl = document.getElementById('dbExchangeBtns');
+  if (exEl) exEl.innerHTML = exchangeButtonsHtml('btn small outline') + (pendingExchange.length ? '<button class="btn small outline" onclick="clearExchanges()">消す</button>' : '');
 
   const sEl = document.getElementById('dbSetterVal');
   const sname = currentSetterName();
@@ -3406,15 +3472,20 @@ function finalizePoint() {
 
   // 詳細モード: 1本目・チャンスボール・セッターをこのラリーに合流させる
   if (state.detailMode) {
-    // 1本目の × と ◎ は点の記録から自動（手で押す×を無くし、二重記録を防ぐ）
-    if (type === 'us_serve_err') pendingFirstBall = { kind:'serve', player: player || '', rating: 0 };
-    else if (type === 'us_ace') pendingFirstBall = { kind:'serve', player: player || '', rating: 3 };
-    else if (state.serving === 'them' && (type === 'them_ace' || type === 'us_recv_err')) pendingFirstBall = { kind:'recv', player: player || '', rating: 0 };
-    if (pendingFirstBall) rally.firstBall = { ...pendingFirstBall };
-    if (pendingChance.length) rally.chance = pendingChance.map(c => ({ ...c }));
+    // 1本目・返球（・旧チャンス）は「点が決まったラリー」にだけ付ける。継続記録（拾われた等）に付けると二重に数えてしまう
+    if (pt.side !== 'none') {
+      // 1本目の × と ◎ は点の記録から自動（手で押す×を無くし、二重記録を防ぐ）
+      if (type === 'us_serve_err') pendingFirstBall = { kind:'serve', player: player || '', rating: 0 };
+      else if (type === 'us_ace') pendingFirstBall = { kind:'serve', player: player || '', rating: 3 };
+      else if (state.serving === 'them' && (type === 'them_ace' || type === 'us_recv_err')) pendingFirstBall = { kind:'recv', player: player || '', rating: 0 };
+      if (pendingFirstBall) rally.firstBall = { ...pendingFirstBall };
+      if (pendingChance.length) rally.chance = pendingChance.map(c => ({ ...c }));
+      if (pendingExchange.length) rally.exchange = pendingExchange.map(e => ({ ...e }));
+    }
     if (type === 'us_kill' || type === 'us_spike_err' || type === 'spike_attempt') {
       const sname = currentSetterName();
       if (sname) rally.setter = sname;
+      if (pendingSetterOverride === OTHER_SETTER) pendingSetterOverride = null;   // 「他の選手のトス」は1本限り
     }
   }
 
@@ -4228,11 +4299,12 @@ function renderDetailStats() {
   const withFB = rallies.filter(r => r.firstBall);
   const withSetter = rallies.filter(r => r.setter);
   const withChance = rallies.filter(r => r.chance && r.chance.length);
+  const withEx = rallies.filter(r => r.exchange && r.exchange.length);
   const digs = rallies.filter(r => r.type === 'dig_attempt');
   const withReact = rallies.filter(r => r.court && (r.court.noReact || (r.court.react && r.court.react.length)));
   const withPower = rallies.filter(r => r.court && r.court.power && COURT_TYPES[r.type] && COURT_TYPES[r.type].side === 'them');  // 失点した球だけ
   const atkPower = rallies.filter(r => r.power && (r.type === 'us_kill' || r.type === 'spike_attempt' || r.type === 'us_spike_err'));
-  if (!withFB.length && !withSetter.length && !withChance.length && !digs.length && !withReact.length && !withPower.length && !atkPower.length) { el.innerHTML = ''; return; }
+  if (!withFB.length && !withSetter.length && !withChance.length && !withEx.length && !digs.length && !withReact.length && !withPower.length && !atkPower.length) { el.innerHTML = ''; return; }
 
   // 集計器: name -> {n, sum, cnt[0..3]}
   const agg = () => ({});
@@ -4323,6 +4395,20 @@ function renderDetailStats() {
       </p></div>`;
   }
 
+  // 返球の強度: 相手からの球 × こちらの返し
+  let exHtml = '';
+  if (withEx.length) {
+    const c = { chance:{spike:0,chance:0}, spike:{spike:0,chance:0} };
+    withEx.forEach(r => r.exchange.forEach(e => { if (c[e.in] && c[e.in][e.out] !== undefined) c[e.in][e.out]++; }));
+    const row = (i, lab) => { const n = c[i].spike + c[i].chance; return `<tr><td>${lab}</td><td>${n}</td><td>${c[i].spike}</td><td>${c[i].chance}</td><td>${n ? (c[i].spike/n*100).toFixed(0)+'%' : '-'}</td></tr>`; };
+    exHtml = `<div class="card"><h2>返球の強度</h2>
+      <p style="font-size:12px;color:var(--text-tertiary);margin:0 0 8px;line-height:1.5;">
+        相手から来た球（チャンス／スパイク）を、こちらは何で返したか。「スパイクで返した率」が高いほど、相手の強度に押されていない。</p>
+      <div style="overflow-x:auto;"><table class="stat-table"><thead><tr>
+        <th>相手からの球</th><th>本数</th><th>スパイクで返した</th><th>チャンスで返した</th><th>スパイクで返した率</th></tr></thead>
+        <tbody>${row('chance','チャンス')}${row('spike','スパイク')}</tbody></table></div></div>`;
+  }
+
   // 攻撃の球質: 選手別に 強打／軟打 の本数（決定＋継続＋ミス）と決定率
   let atkHtml = '';
   if (atkPower.length) {
@@ -4343,10 +4429,11 @@ function renderDetailStats() {
   }
 
   el.innerHTML =
-    '<div class="section-label" style="margin-top:18px;">詳細記録（1本目の評価・セッター・守備・攻撃の球質）</div>' +
+    '<div class="section-label" style="margin-top:18px;">詳細記録（1本目・返球・セッター・攻撃・守備）</div>' +
     tbl('サーブ', '自チームのサーブ。◎＝相手を大きく崩した／×＝サーブミス。', serve) +
     tbl('レセプション', '相手サーブの1本目。◎＝そのままトスに入れた／×＝ミス。', recv) +
-    tbl('チャンスボール処理', '相手が返してきた球の処理。レセプションと見くらべる。', chance) +
+    exHtml +
+    tbl('チャンスボール処理（旧）', '2026-09-14までの記録方式。以降は「返球の強度」で見る。', chance) +
     setterHtml + atkHtml + defHtml;
 }
 
@@ -4356,7 +4443,7 @@ function exportRallyCSV() {
   const rows = [
     ['set', 'rally_no', 'type', 'type_label', 'detail', 'player', 'zone', 'rotation', 'serving_side', 'server',
      'first_ball_kind', 'first_ball_player', 'first_ball_rating', 'chance', 'setter',
-     'from_x', 'from_y', 'to_x', 'to_y', 'power', 'react',
+     'from_x', 'from_y', 'to_x', 'to_y', 'power', 'react', 'exchange',
      'score_us', 'score_them', 'timestamp']
   ];
   rallies.forEach((r, i) => {
@@ -4374,6 +4461,7 @@ function exportRallyCSV() {
       (r.court && r.court.to) ? r.court.to.y : '',
       r.power || ((r.court && r.court.power) ? r.court.power : ''),
       r.court ? (r.court.noReact ? 'none' : (r.court.react || []).join('|')) : '',
+      (r.exchange && r.exchange.length) ? r.exchange.map(e => `${e.in}>${e.out}`).join('|') : '',
       r.scoreUsAfter, r.scoreThemAfter,
       new Date(r.ts).toISOString()
     ]);
@@ -4696,6 +4784,9 @@ function renderCourtPanel(){
     who = `<span class="ct-lab">誰が</span>` +
       cands.map(p => `<button class="ct-chip who ${ct.player===p.name?'sel':''}" onclick="ctPickPlayer('${escapeAttr(p.name)}')">${escapeHtml(p.short || p.name)}</button>`).join('');
   }
+  if (state.detailMode && spec.side === 'us' && ct.type === 'us_kill') {
+    who += `<span class="ct-lab">トス</span><button class="ct-tog toss ${pendingSetterOverride === OTHER_SETTER ? 'sel' : ''}" onclick="toggleOtherSetter(); renderCourtModal();">${pendingSetterOverride === OTHER_SETTER ? '他の選手のトス' : 'セッターのトス'}</button>`;
+  }
   if (spec.power) {
     power = `<span class="ct-lab">球質${spec.power === 'optional' ? '（訂正できます）' : ''}</span><div class="ct-pow">
       <button class="ct-tog ${ct.power==='hard'?'sel':''}" onclick="ctSetPower('hard')">強打</button>
@@ -4920,6 +5011,19 @@ function saveMatch() {
   if (idx >= 0) list[idx] = snapshot;
   else list.push(snapshot);
   localStorage.setItem('vb_matches', JSON.stringify(list));
+}
+
+// この試合だけを書き出す（インポートは全体バックアップと同じ形式なので、そのまま読み込める）
+function exportMatchJSON() {
+  saveMatch();
+  const data = { matches: [JSON.parse(JSON.stringify(state))], presets: [], roster: null, exportedAt: new Date().toISOString(), scope: 'match' };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${state.date || 'match'}_${state.opponent || '試合'}_volleyball-stats.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function exportBackup() {
