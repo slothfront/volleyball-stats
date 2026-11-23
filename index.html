@@ -3055,18 +3055,19 @@ function lsScoreBtns(){
     ...(deep ? [{ type:'dig_attempt', t:'ディグ↑', s:'上げた・点なし', cls:'ghost' }] : []),
   ];
 }
-// 失点側は「その他」に隠さず全部を表に出す（2026-11-23〜）
+// 失点側は「その他」に隠さず全部を表に出す。高さを削らないよう3列で並べる（本人「3列にしたい」2026-11-23〜）
+const LS_LOSE_COLS = 3;
 function lsLoseBtns(){
   const deep = (state.courtLevel|0) >= 1;
   const zoneLabel = deep ? '点で記録' : 'ゾーン';
   if (mergedLostMode()) {
     // 点＋反応: 被スパイク失点とディグミス、被エースとレシーブミスを統合（反応の選択で自動で振り分け）。
-    // 行数に余裕があるので「その他」に隠していた6種とタイムも表に出す（6行）
+    // 3列×4行
     return [
       { type:'them_kill',     t:'被スパイク／ディグミス', s:'点＋触った人', cls:'them', hot:true, span:2 },
       { type:'us_spike_err',  t:'スパイクミス',   s:'選手',       cls:'err' },
       { type:'them_ace',      t:'被エース',       s:'レシーブミス含む', cls:'them' },
-      { type:'them_direct',   t:'被ダイレクト',   s:'返球を直接打たれた', cls:'them' },
+      { type:'them_direct',   t:'被ダイレクト',   s:'返球を打たれた', cls:'them' },
       { type:'us_serve_err',  t:'サーブミス',     s:'サーバー自動', cls:'err' },
       { type:'us_cover_err',  t:'カバーミス',     s:'選手',       cls:'err' },
       { type:'us_toss_err',   t:'トスミス',       s:'選手',       cls:'err' },
@@ -3076,15 +3077,15 @@ function lsLoseBtns(){
       { type:'__timeout',     t:'タイム',         s:'自／相手',   cls:'ghost' },
     ];
   }
+  // 3列×5行: ディグミス（最多）／個人ミス上位／被（赤）／個人ミス下位／その他・反則・タイム
   return [
-    { type:'us_dig_err',    t:'ディグミス',     s:deep ? '選手＋点' : '選手', cls:'err', hot:true, span:2 },
+    { type:'us_dig_err',    t:'ディグミス',     s:deep ? '選手＋点' : '選手', cls:'err', hot:true, span:3 },
     { type:'us_spike_err',  t:'スパイクミス',   s:'選手',       cls:'err' },
     { type:'us_recv_err',   t:'レシーブミス',   s:deep ? '選手＋点' : '選手', cls:'err' },
+    { type:'us_serve_err',  t:'サーブミス',     s:'サーバー自動', cls:'err' },
     { type:'them_kill',     t:'被スパイク',     s:zoneLabel,    cls:'them' },
     { type:'them_ace',      t:'被エース',       s:zoneLabel,    cls:'them' },
-    { type:'them_direct',   t:'被ダイレクト',   s:'返球を直接打たれた', cls:'them' },
-    // 「その他 ▸」に隠していた6種とタイムも表に出す（2026-11-23・ボタンは小さくてよい）＝7行
-    { type:'us_serve_err',  t:'サーブミス',     s:'サーバー自動', cls:'err' },
+    { type:'them_direct',   t:'被ダイレクト',   s:'返球を打たれた', cls:'them' },
     { type:'us_cover_err',  t:'カバーミス',     s:'選手',       cls:'err' },
     { type:'us_toss_err',   t:'トスミス',       s:'選手',       cls:'err' },
     { type:'us_return_err', t:'返球ミス',       s:'選手',       cls:'err' },
@@ -3122,20 +3123,22 @@ function renderLandscape(){
   const LS_LOSE_BTNS = lsLoseBtns(), LS_SCORE_BTNS = lsScoreBtns();
   const A = state.swapSides ? LS_LOSE_BTNS : LS_SCORE_BTNS;
   const B = state.swapSides ? LS_SCORE_BTNS : LS_LOSE_BTNS;
-  // 占有セル数から必要な行数を出す（2列固定）
-  const rowsOf = list => Math.ceil(list.reduce((n,b) => n + (b.span||1) * (b.rspan||1), 0) / 2);
-  const colStyle = n => `grid-template-columns:1fr 1fr;grid-template-rows:repeat(${n},minmax(0,1fr));`;
+  // 占有セル数から必要な行数を出す（得点側は2列・失点側は3列）
+  const colsA = state.swapSides ? LS_LOSE_COLS : 2;
+  const colsB = state.swapSides ? 2 : LS_LOSE_COLS;
+  const rowsOf = (list, cols) => Math.ceil(list.reduce((n,b) => n + (b.span||1) * (b.rspan||1), 0) / cols);
+  const colStyle = (n, cols) => `grid-template-columns:repeat(${cols},minmax(0,1fr));grid-template-rows:repeat(${n},minmax(0,1fr));`;
   const colA = document.getElementById('lsColA');
   const colB = document.getElementById('lsColB');
   // 詳細モードでは、1本目の評価とチャンスボールを親指の届く列の最下段に置く
   // （1本目は1ラリーに必ず1回＝記録ボタンより頻度が高い。中央には置かない）
   const extra = state.detailMode ? 1 : 0;
-  colA.setAttribute('style', colStyle(rowsOf(A) + extra));
-  colB.setAttribute('style', colStyle(rowsOf(B) + extra));
+  colA.setAttribute('style', colStyle(rowsOf(A, colsA) + extra, colsA));
+  colB.setAttribute('style', colStyle(rowsOf(B, colsB) + extra, colsB));
   colA.innerHTML = A.map(lsBtnHtml).join('') +
-    (extra ? '<div id="lsStripA" style="grid-column:span 2;display:grid;min-height:0;"></div>' : '');
+    (extra ? '<div id="lsStripA" style="grid-column:1 / -1;display:grid;min-height:0;"></div>' : '');
   colB.innerHTML = B.map(lsBtnHtml).join('') +
-    (extra ? '<div id="lsStripB" style="grid-column:span 2;display:grid;min-height:0;"></div>' : '');
+    (extra ? '<div id="lsStripB" style="grid-column:1 / -1;display:grid;min-height:0;"></div>' : '');
 
   // ローテ（前衛上段 P4 P3 P2 / 後衛下段 P5 P6 P1）
   document.getElementById('lsRot').innerHTML = [4,3,2,5,6,1].map(pos => {
