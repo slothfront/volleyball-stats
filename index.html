@@ -3055,7 +3055,7 @@ function lsScoreBtns(){
     ...(deep ? [{ type:'dig_attempt', t:'ディグ↑', s:'上げた・点なし', cls:'ghost' }] : []),
   ];
 }
-// 失点を点で記録するモードでは「ディグ↑（上げた）」が加わり、「その他」が1列になる
+// 失点側は「その他」に隠さず全部を表に出す（2026-11-23〜）
 function lsLoseBtns(){
   const deep = (state.courtLevel|0) >= 1;
   const zoneLabel = deep ? '点で記録' : 'ゾーン';
@@ -3083,10 +3083,17 @@ function lsLoseBtns(){
     { type:'them_kill',     t:'被スパイク',     s:zoneLabel,    cls:'them' },
     { type:'them_ace',      t:'被エース',       s:zoneLabel,    cls:'them' },
     { type:'them_direct',   t:'被ダイレクト',   s:'返球を直接打たれた', cls:'them' },
-    { type:'__other',       t:'その他 ▸',       s:'6種＋反則',  cls:'ghost' },
+    // 「その他 ▸」に隠していた6種とタイムも表に出す（2026-11-23・ボタンは小さくてよい）＝7行
+    { type:'us_serve_err',  t:'サーブミス',     s:'サーバー自動', cls:'err' },
+    { type:'us_cover_err',  t:'カバーミス',     s:'選手',       cls:'err' },
+    { type:'us_toss_err',   t:'トスミス',       s:'選手',       cls:'err' },
+    { type:'us_return_err', t:'返球ミス',       s:'選手',       cls:'err' },
+    { type:'us_other_err',  t:'その他ミス',     s:'選手',       cls:'err' },
+    { type:'us_violation',  t:'自反則',         s:'選手',       cls:'err' },
+    { type:'__timeout',     t:'タイム',         s:'自／相手',   cls:'ghost' },
   ];
 }
-// 頻度の低いものは1階層下へ
+// 縦持ち側などから開く「その他」モーダルの中身（横持ちの失点列では全部を表に出した）
 const LS_OTHER_BTNS = ['us_serve_err','us_cover_err','us_toss_err','us_return_err','us_other_err','us_violation'];
 
 function lsBtnHtml(b){
