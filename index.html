@@ -22,6 +22,7 @@
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+html { overscroll-behavior-y: none; }   /* ブラウザの引っぱり更新を止め、アプリの「引っぱって更新」を使う */
 
 body {
   font-family: 'Space Grotesk', 'Noto Sans JP', sans-serif;
@@ -2368,11 +2369,14 @@ function deleteCurrentPreset() {
 }
 
 // ============ 画面遷移 ============
-function showScreen(id) {
+function showScreen(id, fromHistory) {
+  if (!fromHistory) navTo(id);   // 戻る（2026-11-29）：端末の「戻る」用に履歴を積む（下の「戻る」の節）
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   // 横持ちの記録画面だけ画面全体を固定する（他の画面はスクロールできるように）
   document.documentElement.classList.toggle('rec-active', id === 'screen-record');
+  // 引っぱって更新（2026-11-29）：記録画面では動かさない（試合中の連打・スワイプで誤って更新しないように）
+  document.body.toggleAttribute('data-noptr', id === 'screen-record');
   if (id !== 'screen-record') window.scrollTo(0, 0);
 }
 function goHome() { renderHome(); showScreen('screen-home'); }
@@ -2437,6 +2441,7 @@ function showStats(fromScreen, filterSet) {
   showScreen('screen-stats');
 }
 function statsGoBack() {
+  if (navCur.vb === 'screen-stats' && navCur.d > 0) { history.back(); return; }   // 戻る（2026-11-29）：端末の「戻る」と同じく1つ前の画面へ
   if (statsReturnScreen === 'screen-finish') {
     renderFinishScreen();
     showScreen('screen-finish');
@@ -2447,6 +2452,49 @@ function statsGoBack() {
   }
 }
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+// ============ 戻る（端末の「戻る」・2026-11-29） ============
+// 戻る（2026-11-29 本人「スマホの『戻る』と『更新』の操作を設定して」）：画面が変わるたびに履歴を1つ積み、「戻る」で1つ前の画面へ。
+// ホームで押すと普通にアプリを閉じる。新しい試合→記録→試合を閉じる→続きから は同じ1画面として置き換える（戻るとホーム）。
+// 開いている窓（選手・ゾーン・コート図など）は「戻る」で閉じるだけ。記録画面で押したときは、ホームへ戻るか聞く
+// （試合の記録は1点ごとに保存ずみ。キャンセル＝そのまま記録を続ける）
+let navCur = { vb: 'screen-home', d: 0 }, navSkip = false;   // d＝ホームからいくつ進んだか
+const NAV_SWAP = ['screen-setup', 'screen-record', 'screen-finish'];
+function navTo(id) {
+  if (navCur.vb === id) return;
+  if (id === 'screen-home') {   // ホームへは履歴をさかのぼって戻る（ホームで「戻る」＝閉じる、になるように）
+    const back = navCur.d; navCur = { vb: id, d: 0 };
+    if (back > 0) { navSkip = true; history.go(-back); } else history.replaceState(navCur, '');
+    return;
+  }
+  if (NAV_SWAP.includes(navCur.vb) && NAV_SWAP.includes(id)) { navCur = { vb: id, d: navCur.d }; history.replaceState(navCur, ''); }
+  else { navCur = { vb: id, d: navCur.d + 1 }; history.pushState(navCur, ''); }
+}
+if (history.state && history.state.vb && history.state.d > 0) { navSkip = true; history.go(-history.state.d); }   // 再読み込みしたとき：最初の履歴まで戻す
+else history.replaceState(navCur, '');
+window.addEventListener('popstate', (e) => {
+  if (navSkip) { navSkip = false; history.replaceState(navCur, ''); return; }   // navTo が自分でさかのぼったとき（画面はもう出ている）
+  const s = (e.state && e.state.vb) ? e.state : { vb: 'screen-home', d: 0 };
+  const now = (document.querySelector('.screen.active') || {}).id;
+  const open = document.querySelectorAll('.modal-overlay.active');
+  if (open.length || (now === 'screen-record' && lsAwaiting)) {   // 窓・選手待ちを閉じるだけ（画面はそのまま）
+    open.forEach((m) => { if (m.id === 'modal-court') ctCancel(); else closeModal(m.id); });
+    if (lsAwaiting) lsCancelAsk();
+    history.pushState(navCur, ''); return;
+  }
+  if (now === 'screen-record') {
+    if (!confirm('記録を一時停止してホームに戻りますか？\n（ここまでの記録は保存されています）')) { history.pushState(navCur, ''); return; }
+    saveMatch();
+  }
+  let id = s.vb;
+  if (id === 'screen-setup' || (id !== 'screen-home' && !state.matchId)) id = 'screen-home';   // 再読み込みより前の履歴など
+  navCur = { vb: id, d: s.d };
+  if (id === 'screen-home') renderHome();
+  else if (id === 'screen-record') renderRecord();
+  else if (id === 'screen-stats') renderStats();
+  else if (id === 'screen-finish') renderFinishScreen();
+  showScreen(id, true);
+});
 
 // ============ ホーム ============
 function renderHome() {
@@ -5284,6 +5332,53 @@ function escapeHtml(s) {
   })[c]);
 }
 function escapeAttr(s) { return escapeHtml(s).replace(/'/g, "\\'"); }
+
+// ============ 引っぱって更新（2026-11-29）＝アプリの新しい版があれば入れ替える ============
+// 記録画面では動かない（showScreen で body に data-noptr）。試合の設定を入力中・試合の途中の集計では先に聞く
+// 引っぱって更新（2026-11-29 本人「スマホの『戻る』と『更新』の操作を設定して」）
+// いちばん上で指を下へ引くと「離すと更新」→離すと onRefresh()。入力欄の上・2本指・横スワイプでは動かない。
+// ブラウザ自身の引っぱり更新とぶつからないよう、CSSで html { overscroll-behavior-y: none; } にしておく
+function pullToRefresh(onRefresh) {
+  const TH = 80, bar = document.createElement('div');
+  bar.setAttribute('aria-hidden', 'true');
+  bar.style.cssText = 'position:fixed;left:50%;top:0;z-index:9999;transform:translate(-50%,-60px);padding:8px 16px;border-radius:0 0 12px 12px;' +
+    'background:rgba(30,30,30,.86);color:#fff;font:600 13px/1.4 system-ui,sans-serif;letter-spacing:.04em;pointer-events:none;opacity:0;transition:none;' +
+    'padding-top:calc(8px + env(safe-area-inset-top,0px))';
+  document.body.appendChild(bar);
+  let y0 = null, x0 = 0, dy = 0, busy = false;
+  const reset = () => { bar.style.transition = 'transform .2s, opacity .2s'; bar.style.transform = 'translate(-50%,-60px)'; bar.style.opacity = '0'; };
+  addEventListener('touchstart', e => {
+    const t = e.target;
+    y0 = (!busy && e.touches.length === 1 && (document.scrollingElement || document.documentElement).scrollTop <= 0 &&
+      !(t.closest && t.closest('input,textarea,select,[contenteditable],[data-noptr]'))) ? e.touches[0].clientY : null;
+    x0 = e.touches[0].clientX; dy = 0; bar.style.transition = 'none';
+  }, { passive: true });
+  addEventListener('touchmove', e => {
+    if (y0 === null) return;
+    dy = e.touches[0].clientY - y0;
+    if (Math.abs(e.touches[0].clientX - x0) > Math.abs(dy)) { y0 = null; reset(); return; }   // 横に動かしたら引っぱりではない
+    if (dy <= 0) { bar.style.opacity = '0'; return; }
+    bar.textContent = dy > TH ? '↻ 離すと更新' : '↓ 引っぱって更新';
+    bar.style.transform = 'translate(-50%,' + (Math.min(dy, TH + 40) * 0.6 - 60) + 'px)';
+    bar.style.opacity = String(Math.min(1, dy / TH));
+  }, { passive: true });
+  addEventListener('touchend', () => {
+    if (y0 !== null && dy > TH) {
+      busy = true; bar.textContent = '更新しています…';
+      Promise.resolve().then(onRefresh).catch(() => {}).then(() => { busy = false; reset(); });
+    } else reset();
+    y0 = null; dy = 0;
+  });
+}
+pullToRefresh(() => {
+  const now = (document.querySelector('.screen.active') || {}).id;
+  if (now === 'screen-record' || document.querySelector('.modal-overlay.active')) return;
+  if (now === 'screen-setup' && !confirm('入力中の試合の設定が消えます。更新しますか？')) return;
+  if (now === 'screen-stats' && statsReturnScreen === 'screen-record' && state.matchId && !state.finished &&
+    !confirm('試合の途中です。更新するとホームに戻ります（ここまでの記録は保存されています）。更新しますか？')) return;
+  return Promise.resolve().then(() => navigator.serviceWorker && navigator.serviceWorker.getRegistration())
+    .then((r) => r && r.update()).catch(() => {}).then(() => location.reload());
+});
 
 // 起動時
 renderHome();
